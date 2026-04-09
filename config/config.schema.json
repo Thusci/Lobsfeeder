@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "openclaw-ai-router config",
+  "type": "object",
+  "required": ["server", "routing", "models"],
+  "properties": {
+    "server": {"type": "object"},
+    "routing": {"type": "object"},
+    "models": {
+      "type": "object",
+      "additionalProperties": {"type": "object"}
+    },
+    "telemetry": {"type": "object"},
+    "estimation": {"type": "object"},
+    "streaming": {"type": "object"}
+  },
+  "additionalProperties": false
+}

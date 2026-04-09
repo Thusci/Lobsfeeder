@@ -1,0 +1,118 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  request_timeout_seconds: 120
+  max_request_body_mb: 8
+  router_api_keys: []
+
+routing:
+  enabled: true
+  evaluator_model: model_a
+  default_difficulty: medium
+  allow_request_override: true
+  override_field_mode: alias
+  difficulty_levels: [easy, medium, hard, expert]
+  difficulty_to_model:
+    easy: model_b
+    medium: model_c
+    hard: model_d
+    expert: model_d
+  fallback_policy:
+    strategy: fallback
+    ordered_candidates:
+      easy: [model_b, model_c, model_d]
+      medium: [model_c, model_d]
+      hard: [model_d]
+      expert: [model_d]
+    max_fallback_hops: 2
+    on_evaluator_error_use_default_difficulty: true
+  strict_mode: false
+  allow_evaluator_as_candidate: false
+
+models:
+  model_a:
+    provider: openai_compatible
+    base_url: http://host.docker.internal:9001/v1
+    api_key: ${MODEL_A_API_KEY}
+    upstream_model_name: judge-model
+    timeout_seconds: 20
+    retry:
+      max_attempts: 2
+      backoff_initial_ms: 300
+      backoff_max_ms: 1500
+    limits:
+      rpm: 120
+      tpm: 120000
+      concurrency: 8
+    health:
+      failure_threshold: 5
+      cooldown_seconds: 30
+
+  model_b:
+    provider: openai_compatible
+    base_url: http://host.docker.internal:9002/v1
+    api_key: ${MODEL_B_API_KEY}
+    upstream_model_name: cheap-fast-model
+    timeout_seconds: 60
+    retry:
+      max_attempts: 2
+      backoff_initial_ms: 500
+      backoff_max_ms: 2000
+    limits:
+      rpm: 300
+      tpm: 300000
+      concurrency: 32
+    health:
+      failure_threshold: 8
+      cooldown_seconds: 20
+
+  model_c:
+    provider: openai_compatible
+    base_url: http://host.docker.internal:9003/v1
+    api_key: ${MODEL_C_API_KEY}
+    upstream_model_name: balanced-model
+    timeout_seconds: 90
+    retry:
+      max_attempts: 2
+      backoff_initial_ms: 700
+      backoff_max_ms: 3000
+    limits:
+      rpm: 180
+      tpm: 180000
+      concurrency: 16
+    health:
+      failure_threshold: 6
+      cooldown_seconds: 25
+
+  model_d:
+    provider: openai_compatible
+    base_url: http://host.docker.internal:9004/v1
+    api_key: ${MODEL_D_API_KEY}
+    upstream_model_name: strongest-model
+    timeout_seconds: 120
+    retry:
+      max_attempts: 1
+      backoff_initial_ms: 1000
+      backoff_max_ms: 3000
+    limits:
+      rpm: 60
+      tpm: 240000
+      concurrency: 8
+    health:
+      failure_threshold: 4
+      cooldown_seconds: 45
+
+telemetry:
+  structured_logs: true
+  log_level: INFO
+  expose_metrics: true
+  debug_prompts: false
+
+estimation:
+  token_strategy: best_effort
+  chars_per_token_fallback: 4
+
+streaming:
+  enabled: true
+  evaluator_streaming: false
+  passthrough_streaming: true

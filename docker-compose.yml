@@ -1,0 +1,16 @@
+services:
+  router:
+    build: .
+    container_name: openclaw-ai-router
+    ports:
+      - "8080:8080"
+    environment:
+      - ROUTER_CONFIG=/app/config/config.yaml
+      - MODEL_A_API_KEY=${MODEL_A_API_KEY:-demo}
+      - MODEL_B_API_KEY=${MODEL_B_API_KEY:-demo}
+      - MODEL_C_API_KEY=${MODEL_C_API_KEY:-demo}
+      - MODEL_D_API_KEY=${MODEL_D_API_KEY:-demo}
+    volumes:
+      - ./config/config.example.yaml:/app/config/config.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
