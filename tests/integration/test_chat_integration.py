@@ -136,6 +136,20 @@ async def test_bypass_route_works(app_config, respx_mock) -> None:
 
 
 @pytest.mark.asyncio
+async def test_force_override_marks_bypass_route_mode(app_config, respx_mock) -> None:
+    _mock_upstream(respx_mock, "upstream-b", httpx.Response(200, json=_chat_ok()))
+
+    async with router_client(app_config) as client:
+        resp = await client.post(
+            "/v1/chat/completions",
+            json={"model": "force:model_b", "messages": [{"role": "user", "content": "hi"}]},
+        )
+
+    assert resp.status_code == 200
+    assert resp.headers["x-route-mode"] == "bypass"
+
+
+@pytest.mark.asyncio
 async def test_unknown_override_returns_400(app_config) -> None:
     async with router_client(app_config) as client:
         resp = await client.post(
@@ -144,6 +158,19 @@ async def test_unknown_override_returns_400(app_config) -> None:
         )
 
     assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_router_auth_returns_401(app_config) -> None:
+    app_config.server.router_api_keys = ["secret"]
+
+    async with router_client(app_config) as client:
+        resp = await client.post(
+            "/v1/chat/completions",
+            json={"model": "force:model_b", "messages": [{"role": "user", "content": "hi"}]},
+        )
+
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio

@@ -3,6 +3,11 @@ server:
   port: 8080
   request_timeout_seconds: 120
   max_request_body_mb: 8
+  max_messages: 256
+  max_tools: 128
+  max_stop_sequences: 32
+  max_message_chars: 200000
+  max_tool_definition_chars: 400000
   router_api_keys: []
 
 routing:

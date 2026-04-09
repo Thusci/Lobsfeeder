@@ -34,6 +34,7 @@ class DispatchResult:
     selected_model: str
     difficulty: str
     fallback_hops: int
+    route_mode: str
 
 
 @dataclass
@@ -42,6 +43,7 @@ class StreamDispatchResult:
     selected_model: str
     difficulty: str
     fallback_hops: int
+    route_mode: str
 
 
 class RouterDispatcher:
@@ -111,6 +113,10 @@ class RouterDispatcher:
             usage["total_tokens"] = max(actual_tokens, 1)
         return response_json
 
+    @staticmethod
+    def _build_upstream_headers(request_id: str) -> dict[str, str]:
+        return {"X-Request-ID": request_id}
+
     async def dispatch_non_stream(self, payload: dict[str, Any], request_id: str) -> DispatchResult:
         started = monotonic()
         self.metrics.inc("total_requests")
@@ -135,7 +141,10 @@ class RouterDispatcher:
             try:
                 lease = await self._acquire_or_raise(model_key, estimated_tokens)
                 client = self.clients.get(model_key)
-                response = await client.chat_completions(payload)
+                response = await client.chat_completions(
+                    payload,
+                    headers=self._build_upstream_headers(request_id),
+                )
                 actual_tokens = self.token_estimator.resolve_actual_tokens(response.response_json, estimated_tokens)
                 await lease.finalize(actual_tokens)
                 self.health.record_success(model_key)
@@ -162,6 +171,7 @@ class RouterDispatcher:
                     selected_model=model_key,
                     difficulty=difficulty,
                     fallback_hops=hop,
+                    route_mode=route_mode.mode,
                 )
             except Exception as exc:
                 last_error = exc
@@ -215,7 +225,10 @@ class RouterDispatcher:
             try:
                 lease = await self._acquire_or_raise(model_key, estimated_tokens)
                 client = self.clients.get(model_key)
-                stream_cm = client.stream_chat_completions(payload)
+                stream_cm = client.stream_chat_completions(
+                    payload,
+                    headers=self._build_upstream_headers(request_id),
+                )
                 response = await stream_cm.__aenter__()
                 stream_entered = True
                 iterator = response.aiter_raw()
@@ -257,6 +270,7 @@ class RouterDispatcher:
                     selected_model=model_key,
                     difficulty=difficulty,
                     fallback_hops=hop,
+                    route_mode=route_mode.mode,
                 )
             except Exception as exc:
                 last_error = exc

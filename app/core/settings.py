@@ -93,6 +93,11 @@ class ServerConfig(BaseModel):
     port: int = Field(default=8080, ge=1, le=65535)
     request_timeout_seconds: int = Field(default=120, ge=1, le=3600)
     max_request_body_mb: int = Field(default=8, ge=1, le=128)
+    max_messages: int = Field(default=256, ge=1, le=10000)
+    max_tools: int = Field(default=128, ge=0, le=4096)
+    max_stop_sequences: int = Field(default=32, ge=0, le=512)
+    max_message_chars: int = Field(default=200000, ge=1, le=10000000)
+    max_tool_definition_chars: int = Field(default=400000, ge=1, le=10000000)
     router_api_keys: list[str] = Field(default_factory=list)
 
 

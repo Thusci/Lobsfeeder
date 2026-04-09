@@ -36,7 +36,15 @@ def create_app(config: AppConfig | None = None, config_path: str | None = None) 
 
     @app.middleware("http")
     async def body_size_limit(request: Request, call_next):
-        services: RouterServices = request.app.state.services
+        services: RouterServices | None = getattr(request.app.state, "services", None)
+        if services is None:
+            raise RouterError(
+                message="Router services are not initialized",
+                status_code=503,
+                error_type="server_error",
+                code="services_not_initialized",
+                retryable=True,
+            )
         max_bytes = services.config.server.max_request_body_mb * 1024 * 1024
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > max_bytes:
@@ -64,4 +72,19 @@ def create_app(config: AppConfig | None = None, config_path: str | None = None) 
     return app
 
 
-app = create_app()
+def _create_default_app() -> FastAPI:
+    try:
+        return create_app()
+    except Exception as exc:  # pragma: no cover
+        logger.exception("failed to create default app: %s", exc)
+        app = FastAPI(title="openclaw-ai-router", version="0.1.0")
+
+        @app.get("/healthz")
+        async def healthz_failed() -> JSONResponse:
+            payload = make_openai_error("Application startup failed", "server_error", "startup_failure")
+            return JSONResponse(status_code=503, content=payload)
+
+        return app
+
+
+app = _create_default_app()

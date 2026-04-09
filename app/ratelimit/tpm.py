@@ -63,6 +63,12 @@ class TPMLimiter:
             settled_tokens = max(actual_tokens or reserved_tokens, 1)
             self._events.append((now, settled_tokens))
 
+    async def release(self, reservation_id: str) -> None:
+        async with self._lock:
+            now = monotonic()
+            self._cleanup(now)
+            self._pending.pop(reservation_id, None)
+
     async def current(self) -> int:
         async with self._lock:
             now = monotonic()

@@ -26,6 +26,17 @@ class ValidationError(RouterError):
         )
 
 
+class AuthenticationError(RouterError):
+    def __init__(self, message: str = "Authentication failed") -> None:
+        super().__init__(
+            message=message,
+            status_code=401,
+            error_type="authentication_error",
+            code="authentication_error",
+            retryable=False,
+        )
+
+
 class EvaluatorError(RouterError):
     def __init__(self, message: str, retryable: bool = True) -> None:
         super().__init__(

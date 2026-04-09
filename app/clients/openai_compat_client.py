@@ -47,14 +47,24 @@ class OpenAICompatClient:
             return UpstreamServerError(message)
         return UpstreamClientError(message=message, status_code=status_code, retryable=False)
 
-    async def _post_json(self, payload: dict[str, Any], timeout_seconds: int | None = None) -> httpx.Response:
+    async def _post_json(
+        self,
+        payload: dict[str, Any],
+        timeout_seconds: int | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> httpx.Response:
         return await self._client.post(
             "/chat/completions",
             json=payload,
             timeout=timeout_seconds or self.config.timeout_seconds,
+            headers=headers,
         )
 
-    async def chat_completions(self, payload: dict[str, Any]) -> NormalizedResponse:
+    async def chat_completions(
+        self,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> NormalizedResponse:
         req = dict(payload)
         req["model"] = self.config.upstream_model_name
 
@@ -66,7 +76,7 @@ class OpenAICompatClient:
 
         for attempt in range(1, max_attempts + 1):
             try:
-                response = await self._post_json(req)
+                response = await self._post_json(req, headers=headers)
                 if response.status_code >= 400:
                     body = response.text
                     err = self._map_error(response.status_code, body)
@@ -110,7 +120,11 @@ class OpenAICompatClient:
         raise UpstreamServerError(str(last_error or "Unknown upstream error"))
 
     @asynccontextmanager
-    async def stream_chat_completions(self, payload: dict[str, Any]) -> AsyncIterator[httpx.Response]:
+    async def stream_chat_completions(
+        self,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> AsyncIterator[httpx.Response]:
         req = dict(payload)
         req["model"] = self.config.upstream_model_name
 
@@ -120,6 +134,7 @@ class OpenAICompatClient:
                 "/chat/completions",
                 json=req,
                 timeout=self.config.timeout_seconds,
+                headers=headers,
             ) as response:
                 if response.status_code >= 400:
                     body = (await response.aread()).decode("utf-8", errors="ignore")

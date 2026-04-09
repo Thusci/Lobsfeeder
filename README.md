@@ -8,6 +8,8 @@ OpenAI-compatible 路由网关，位于 OpenClaw 上游。
 - 每模型 RPM/TPM/并发限制
 - 失败回退（fallback）与健康冷却（cooldown）
 - 流式透传（`stream=true`）
+- 请求级安全约束（消息数、tools 数、内容长度）
+- `X-Request-ID` 透传到上游，便于链路追踪
 - 结构化日志与 `/metrics`
 
 ## 快速开始

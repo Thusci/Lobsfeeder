@@ -5,13 +5,15 @@ from dataclasses import dataclass
 from app.core.errors import NoCapacityError
 from app.core.settings import AppConfig
 from app.ratelimit.concurrency import ConcurrencyLease, ConcurrencyLimiter
-from app.ratelimit.rpm import RPMLimiter
+from app.ratelimit.rpm import RPMLimiter, RPMReservation
 from app.ratelimit.tpm import TPMReservation, TPMLimiter
 
 
 @dataclass
 class ModelLease:
     model_key: str
+    rpm: RPMLimiter
+    rpm_reservation: RPMReservation
     concurrency: ConcurrencyLease
     tpm: TPMLimiter
     tpm_reservation: TPMReservation
@@ -22,9 +24,12 @@ class ModelLease:
             return
         self.finalized = True
         try:
-            await self.tpm.finalize(self.tpm_reservation.reservation_id, actual_tokens)
+            await self.rpm.finalize(self.rpm_reservation.reservation_id)
         finally:
-            await self.concurrency.release()
+            try:
+                await self.tpm.finalize(self.tpm_reservation.reservation_id, actual_tokens)
+            finally:
+                await self.concurrency.release()
 
 
 class RateLimitManager:
@@ -48,20 +53,30 @@ class RateLimitManager:
         return await self._concurrency[model_key].can_accept()
 
     async def acquire(self, model_key: str, estimated_tokens: int) -> ModelLease:
-        rpm_ok = await self._rpm[model_key].try_acquire()
-        if not rpm_ok:
+        rpm_reservation = await self._rpm[model_key].reserve()
+        if rpm_reservation is None:
             raise NoCapacityError(f"Model {model_key} exceeded RPM")
 
-        tpm_reservation = await self._tpm[model_key].reserve(estimated_tokens)
-        if tpm_reservation is None:
-            raise NoCapacityError(f"Model {model_key} exceeded TPM")
+        try:
+            tpm_reservation = await self._tpm[model_key].reserve(estimated_tokens)
+            if tpm_reservation is None:
+                raise NoCapacityError(f"Model {model_key} exceeded TPM")
 
-        concurrency_lease = await self._concurrency[model_key].try_acquire()
-        if concurrency_lease is None:
-            raise NoCapacityError(f"Model {model_key} exceeded concurrency")
+            try:
+                concurrency_lease = await self._concurrency[model_key].try_acquire()
+                if concurrency_lease is None:
+                    raise NoCapacityError(f"Model {model_key} exceeded concurrency")
+            except Exception:
+                await self._tpm[model_key].release(tpm_reservation.reservation_id)
+                raise
+        except Exception:
+            await self._rpm[model_key].release(rpm_reservation.reservation_id)
+            raise
 
         return ModelLease(
             model_key=model_key,
+            rpm=self._rpm[model_key],
+            rpm_reservation=rpm_reservation,
             concurrency=concurrency_lease,
             tpm=self._tpm[model_key],
             tpm_reservation=tpm_reservation,

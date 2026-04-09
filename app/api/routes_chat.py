@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.api.deps import enforce_router_auth, get_services
+from app.api.deps import enforce_router_auth, get_services, validate_request_limits
 from app.api.schemas import ChatCompletionRequest
 from app.core.errors import ValidationError
 from app.core.ids import new_request_id
@@ -16,6 +16,7 @@ router = APIRouter(tags=["chat"])
 async def chat_completions(request: Request, body: ChatCompletionRequest):
     services = get_services(request)
     enforce_router_auth(request, services)
+    validate_request_limits(body, services)
 
     request_id = request.headers.get("x-request-id") or new_request_id()
     payload = body.model_dump(exclude_none=True)
@@ -34,7 +35,7 @@ async def chat_completions(request: Request, body: ChatCompletionRequest):
             headers={
                 "x-request-id": request_id,
                 "x-selected-model": stream_result.selected_model,
-                "x-route-mode": "bypass" if payload.get("model") in services.config.models else "evaluated",
+                "x-route-mode": stream_result.route_mode,
             },
         )
 
@@ -44,6 +45,6 @@ async def chat_completions(request: Request, body: ChatCompletionRequest):
         headers={
             "x-request-id": request_id,
             "x-selected-model": result.selected_model,
-            "x-route-mode": "bypass" if payload.get("model") in services.config.models else "evaluated",
+            "x-route-mode": result.route_mode,
         },
     )
