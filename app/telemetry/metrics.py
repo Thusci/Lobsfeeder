@@ -17,6 +17,7 @@ class MetricsRegistry:
         self._lock = Lock()
         self._counters: dict[str, dict[tuple[tuple[str, str], ...], float]] = defaultdict(dict)
         self._histograms: dict[str, dict[tuple[tuple[str, str], ...], list[float]]] = defaultdict(dict)
+        self._gauges: dict[str, dict[tuple[tuple[str, str], ...], float]] = defaultdict(dict)
 
     def inc(self, name: str, labels: Mapping[str, str] | None = None, value: float = 1.0) -> None:
         if not self.enabled:
@@ -31,6 +32,13 @@ class MetricsRegistry:
         key = _labels_key(labels)
         with self._lock:
             self._histograms[name].setdefault(key, []).append(value)
+
+    def set_gauge(self, name: str, value: float, labels: Mapping[str, str] | None = None) -> None:
+        if not self.enabled:
+            return
+        key = _labels_key(labels)
+        with self._lock:
+            self._gauges[name][key] = value
 
     def render_prometheus(self) -> str:
         if not self.enabled:
@@ -60,5 +68,14 @@ class MetricsRegistry:
                     else:
                         lines.append(f"{metric_name}_count {len(values)}")
                         lines.append(f"{metric_name}_avg {avg}")
+
+            for metric_name, series in self._gauges.items():
+                lines.append(f"# TYPE {metric_name} gauge")
+                for labels, value in series.items():
+                    if labels:
+                        label_str = ",".join(f'{k}="{v}"' for k, v in labels)
+                        lines.append(f"{metric_name}{{{label_str}}} {value}")
+                    else:
+                        lines.append(f"{metric_name} {value}")
 
         return "\n".join(lines) + "\n"

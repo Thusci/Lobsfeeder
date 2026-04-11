@@ -8,6 +8,9 @@ server:
   max_stop_sequences: 32
   max_message_chars: 200000
   max_tool_definition_chars: 400000
+  global_limits:
+    total_rpm:
+    total_concurrency:
   router_api_keys: []
 
 routing:
@@ -31,6 +34,8 @@ routing:
       expert: [model_d]
     max_fallback_hops: 2
     on_evaluator_error_use_default_difficulty: true
+    queue_wait_ms: 250
+    queue_poll_interval_ms: 25
   strict_mode: false
   allow_evaluator_as_candidate: false
 

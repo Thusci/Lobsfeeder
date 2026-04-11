@@ -63,3 +63,9 @@ class HealthTracker:
                 "last_error": state.last_error,
             }
         return result
+
+    def healthy_models(self) -> set[str]:
+        return {model_key for model_key in self._states if self.is_healthy(model_key)}
+
+    def unhealthy_models_count(self) -> int:
+        return len(self._states) - len(self.healthy_models())

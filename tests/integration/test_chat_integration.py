@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 import httpx
@@ -56,6 +57,19 @@ async def router_client(app_config):
     try:
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             yield client
+    finally:
+        await close_services(services)
+
+
+@asynccontextmanager
+async def router_client_with_services(app_config):
+    app = create_app(config=app_config)
+    services = await build_services(app_config)
+    app.state.services = services
+    transport = httpx.ASGITransport(app=app)
+    try:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            yield client, services
     finally:
         await close_services(services)
 
@@ -223,3 +237,86 @@ async def test_stream_first_target_failure_before_first_chunk_fallback(app_confi
     assert resp.status_code == 200
     assert resp.headers["x-selected-model"] == "model_c"
     assert "[DONE]" in body
+
+
+@pytest.mark.asyncio
+async def test_reject_strategy_returns_429_without_fallback(app_config, respx_mock) -> None:
+    app_config.routing.fallback_policy.strategy = "reject"
+    app_config.models["model_b"].limits.rpm = 1
+
+    _mock_upstream(respx_mock, "upstream-a", httpx.Response(200, json=EVALUATOR_OK))
+    _mock_upstream(respx_mock, "upstream-b", httpx.Response(200, json=_chat_ok()))
+
+    async with router_client(app_config) as client:
+        first = await client.post(
+            "/v1/chat/completions",
+            json={"model": "auto", "messages": [{"role": "user", "content": "hi"}]},
+        )
+        second = await client.post(
+            "/v1/chat/completions",
+            json={"model": "auto", "messages": [{"role": "user", "content": "again"}]},
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_queue_strategy_waits_for_capacity(app_config, respx_mock) -> None:
+    app_config.routing.fallback_policy.strategy = "queue"
+    app_config.routing.fallback_policy.queue_wait_ms = 300
+    app_config.routing.fallback_policy.queue_poll_interval_ms = 10
+    app_config.models["model_b"].limits.concurrency = 1
+
+    _mock_upstream(respx_mock, "upstream-a", httpx.Response(200, json=EVALUATOR_OK))
+    _mock_upstream(respx_mock, "upstream-b", httpx.Response(200, json=_chat_ok()))
+
+    async with router_client_with_services(app_config) as pair:
+        client, services = pair
+        held_lease = await services.rate_limits.acquire("model_b", estimated_tokens=1)
+
+        async def release_later() -> None:
+            await asyncio.sleep(0.05)
+            await held_lease.finalize(actual_tokens=1)
+
+        release_task = asyncio.create_task(release_later())
+        try:
+            resp = await client.post(
+                "/v1/chat/completions",
+                json={"model": "auto", "messages": [{"role": "user", "content": "queued"}]},
+            )
+        finally:
+            await release_task
+
+    assert resp.status_code == 200
+    assert resp.headers["x-selected-model"] == "model_b"
+
+
+@pytest.mark.asyncio
+async def test_readyz_reflects_internal_state(app_config) -> None:
+    async with router_client_with_services(app_config) as pair:
+        client, services = pair
+        for model_key in ("model_b", "model_c", "model_d"):
+            services.health.record_failure(model_key, "test")
+            services.health.record_failure(model_key, "test")
+
+        resp = await client.get("/readyz")
+
+    assert resp.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_metrics_exposes_operational_gauges(app_config, respx_mock) -> None:
+    _mock_upstream(respx_mock, "upstream-a", httpx.Response(200, json=EVALUATOR_OK))
+    _mock_upstream(respx_mock, "upstream-b", httpx.Response(200, json=_chat_ok()))
+
+    async with router_client(app_config) as client:
+        await client.post(
+            "/v1/chat/completions",
+            json={"model": "auto", "messages": [{"role": "user", "content": "hi"}]},
+        )
+        resp = await client.get("/metrics")
+
+    assert resp.status_code == 200
+    assert "current_per_model_concurrency" in resp.text
+    assert "unhealthy_models_count" in resp.text

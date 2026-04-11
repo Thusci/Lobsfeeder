@@ -61,3 +61,21 @@ async def test_rate_limit_manager_releases_partial_reservations(config_data: dic
     assert snapshot["model_b"]["tpm_in_window"] == 10
 
     await first_lease.finalize(actual_tokens=10)
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_manager_respects_global_limits(config_data: dict) -> None:
+    config_data["server"]["global_limits"] = {"total_rpm": 1, "total_concurrency": 1}
+    config = AppConfig.model_validate(config_data)
+    manager = RateLimitManager(config)
+
+    lease = await manager.acquire("model_b", estimated_tokens=10)
+
+    with pytest.raises(NoCapacityError):
+        await manager.acquire("model_c", estimated_tokens=10)
+
+    snapshot = await manager.global_snapshot()
+    assert snapshot["rpm_in_window"] == 1
+    assert snapshot["concurrency"] == 1
+
+    await lease.finalize(actual_tokens=10)

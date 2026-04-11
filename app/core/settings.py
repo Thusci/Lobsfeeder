@@ -55,6 +55,15 @@ class FallbackPolicyConfig(BaseModel):
     ordered_candidates: dict[str, list[str]] = Field(default_factory=dict)
     max_fallback_hops: int = Field(default=2, ge=0, le=20)
     on_evaluator_error_use_default_difficulty: bool = True
+    queue_wait_ms: int = Field(default=250, ge=0, le=60000)
+    queue_poll_interval_ms: int = Field(default=25, ge=1, le=5000)
+
+
+class GlobalLimitConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total_rpm: int | None = Field(default=None, gt=0)
+    total_concurrency: int | None = Field(default=None, gt=0)
 
 
 class RoutingConfig(BaseModel):
@@ -98,6 +107,7 @@ class ServerConfig(BaseModel):
     max_stop_sequences: int = Field(default=32, ge=0, le=512)
     max_message_chars: int = Field(default=200000, ge=1, le=10000000)
     max_tool_definition_chars: int = Field(default=400000, ge=1, le=10000000)
+    global_limits: GlobalLimitConfig = Field(default_factory=GlobalLimitConfig)
     router_api_keys: list[str] = Field(default_factory=list)
 
 

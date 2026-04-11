@@ -6,7 +6,9 @@ OpenAI-compatible 路由网关，位于 OpenClaw 上游。
 - `POST /v1/chat/completions`（OpenAI 风格）
 - 评估模型先分类，再按难度路由到目标模型
 - 每模型 RPM/TPM/并发限制
+- 可选全局 RPM/并发限制
 - 失败回退（fallback）与健康冷却（cooldown）
+- 可配置容量策略：`fallback` / `queue` / `reject`
 - 流式透传（`stream=true`）
 - 请求级安全约束（消息数、tools 数、内容长度）
 - `X-Request-ID` 透传到上游，便于链路追踪
@@ -45,6 +47,12 @@ docker compose up --build
 - 直连绕过：`model` 直接填内部模型 key（如 `model_b`）
 - 强制覆写：`model=force:model_b`
 - 未知强制覆写：返回 `400`
+
+## 容量策略
+
+- `fallback`：当前模型无容量时尝试下一个候选模型
+- `queue`：当前模型无容量时短暂等待，超时后返回 `429`
+- `reject`：当前模型无容量时立即返回 `429`
 
 ## 测试
 

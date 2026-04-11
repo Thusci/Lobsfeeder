@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from time import monotonic
@@ -12,7 +13,9 @@ from app.core.errors import (
     NoCapacityError,
     RouterError,
     RoutingError,
+    UpstreamRateLimitError,
     UpstreamServerError,
+    UpstreamTimeoutError,
 )
 from app.core.settings import AppConfig
 from app.evaluator.service import EvaluatorService
@@ -64,6 +67,9 @@ class RouterDispatcher:
         self.rate_limits = rate_limits
         self.health = health
         self.evaluator = evaluator
+
+    def _rate_limit_strategy(self) -> str:
+        return self.config.routing.fallback_policy.strategy
 
     async def _resolve_difficulty(
         self,
@@ -117,6 +123,46 @@ class RouterDispatcher:
     def _build_upstream_headers(request_id: str) -> dict[str, str]:
         return {"X-Request-ID": request_id}
 
+    async def _queue_for_capacity(self, model_key: str, estimated_tokens: int) -> ModelLease:
+        policy = self.config.routing.fallback_policy
+        wait_ms = policy.queue_wait_ms
+        if wait_ms <= 0:
+            raise NoCapacityError(f"Model {model_key} has no capacity and queue_wait_ms=0")
+
+        poll_seconds = policy.queue_poll_interval_ms / 1000.0
+        deadline = monotonic() + (wait_ms / 1000.0)
+        while monotonic() < deadline:
+            if await self.rate_limits.can_accept(model_key, estimated_tokens):
+                try:
+                    return await self.rate_limits.acquire(model_key, estimated_tokens)
+                except NoCapacityError:
+                    pass
+            await asyncio.sleep(poll_seconds)
+
+        raise NoCapacityError(f"Model {model_key} has no capacity after queue wait")
+
+    async def _acquire_with_strategy(self, model_key: str, estimated_tokens: int) -> ModelLease:
+        try:
+            return await self._acquire_or_raise(model_key, estimated_tokens)
+        except NoCapacityError:
+            self.metrics.inc("per_model_rate_limit_hits", {"model": model_key})
+            if self._rate_limit_strategy() == "queue":
+                return await self._queue_for_capacity(model_key, estimated_tokens)
+            raise
+
+    def _should_continue_to_next_candidate(self, exc: Exception, stream_started: bool = False) -> bool:
+        if isinstance(exc, (NoCapacityError, UpstreamRateLimitError)):
+            return self._rate_limit_strategy() == "fallback"
+        return should_fallback(exc, stream_started=stream_started)
+
+    def _record_failure_metrics(self, model_key: str, exc: Exception) -> None:
+        self.metrics.inc("failed_requests")
+        self.metrics.inc("per_model_fallback_from", {"model": model_key})
+        if isinstance(exc, (NoCapacityError, UpstreamRateLimitError)):
+            self.metrics.inc("per_model_rate_limit_hits", {"model": model_key})
+        if isinstance(exc, UpstreamTimeoutError):
+            self.metrics.inc("per_model_timeouts", {"model": model_key})
+
     async def dispatch_non_stream(self, payload: dict[str, Any], request_id: str) -> DispatchResult:
         started = monotonic()
         self.metrics.inc("total_requests")
@@ -139,7 +185,7 @@ class RouterDispatcher:
         for hop, model_key in enumerate(candidates):
             lease: ModelLease | None = None
             try:
-                lease = await self._acquire_or_raise(model_key, estimated_tokens)
+                lease = await self._acquire_with_strategy(model_key, estimated_tokens)
                 client = self.clients.get(model_key)
                 response = await client.chat_completions(
                     payload,
@@ -181,14 +227,13 @@ class RouterDispatcher:
                 if should_count_as_health_failure(exc):
                     self.health.record_failure(model_key, str(exc))
 
-                self.metrics.inc("failed_requests")
-                self.metrics.inc("per_model_fallback_from", {"model": model_key})
+                self._record_failure_metrics(model_key, exc)
 
-                if hop < len(candidates) - 1 and should_fallback(exc):
+                if hop < len(candidates) - 1 and self._should_continue_to_next_candidate(exc):
                     continue
 
                 if isinstance(exc, RouterError):
-                    if should_fallback(exc):
+                    if self._should_continue_to_next_candidate(exc):
                         raise RoutingError(
                             "All candidate models failed",
                             status_code=503,
@@ -223,7 +268,7 @@ class RouterDispatcher:
             stream_cm = None
             stream_entered = False
             try:
-                lease = await self._acquire_or_raise(model_key, estimated_tokens)
+                lease = await self._acquire_with_strategy(model_key, estimated_tokens)
                 client = self.clients.get(model_key)
                 stream_cm = client.stream_chat_completions(
                     payload,
@@ -250,7 +295,7 @@ class RouterDispatcher:
                     except Exception as exc:
                         if should_count_as_health_failure(exc):
                             self.health.record_failure(model_key, str(exc))
-                        self.metrics.inc("failed_requests")
+                        self._record_failure_metrics(model_key, exc)
                         raise
                     finally:
                         await lease.finalize(estimated_tokens)
@@ -282,14 +327,13 @@ class RouterDispatcher:
                 if should_count_as_health_failure(exc):
                     self.health.record_failure(model_key, str(exc))
 
-                self.metrics.inc("failed_requests")
-                self.metrics.inc("per_model_fallback_from", {"model": model_key})
+                self._record_failure_metrics(model_key, exc)
 
-                if hop < len(candidates) - 1 and should_fallback(exc, stream_started=False):
+                if hop < len(candidates) - 1 and self._should_continue_to_next_candidate(exc, stream_started=False):
                     continue
 
                 if isinstance(exc, RouterError):
-                    if should_fallback(exc, stream_started=False):
+                    if self._should_continue_to_next_candidate(exc, stream_started=False):
                         raise RoutingError(
                             "All candidate models failed",
                             status_code=503,
