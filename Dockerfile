@@ -8,13 +8,9 @@ WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-RUN useradd -m appuser
-
 COPY app /app/app
 COPY config /app/config
 COPY README.md /app/README.md
-
-USER appuser
 
 EXPOSE 8080
 

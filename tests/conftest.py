@@ -54,6 +54,7 @@ def build_base_config() -> dict[str, Any]:
         "models": {
             "model_a": {
                 "provider": "openai_compatible",
+                "provider_group": "openai",
                 "base_url": "http://upstream-a/v1",
                 "api_key": "k-a",
                 "upstream_model_name": "judge-model",
@@ -68,6 +69,7 @@ def build_base_config() -> dict[str, Any]:
             },
             "model_b": {
                 "provider": "openai_compatible",
+                "provider_group": "openai",
                 "base_url": "http://upstream-b/v1",
                 "api_key": "k-b",
                 "upstream_model_name": "cheap-fast-model",
@@ -82,6 +84,7 @@ def build_base_config() -> dict[str, Any]:
             },
             "model_c": {
                 "provider": "openai_compatible",
+                "provider_group": "openai",
                 "base_url": "http://upstream-c/v1",
                 "api_key": "k-c",
                 "upstream_model_name": "balanced-model",
@@ -96,6 +99,7 @@ def build_base_config() -> dict[str, Any]:
             },
             "model_d": {
                 "provider": "openai_compatible",
+                "provider_group": "openai",
                 "base_url": "http://upstream-d/v1",
                 "api_key": "k-d",
                 "upstream_model_name": "strongest-model",

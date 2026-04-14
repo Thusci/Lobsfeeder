@@ -7,6 +7,7 @@ from typing import Any, AsyncIterator
 
 import httpx
 
+from app.clients.auth import build_upstream_auth_headers
 from app.core.errors import (
     ParseError,
     UpstreamAuthError,
@@ -31,7 +32,6 @@ class OpenAICompatClient:
         self._client = httpx.AsyncClient(
             base_url=config.base_url.rstrip("/"),
             timeout=config.timeout_seconds,
-            headers={"Authorization": f"Bearer {config.api_key}"},
         )
 
     async def aclose(self) -> None:
@@ -53,11 +53,14 @@ class OpenAICompatClient:
         timeout_seconds: int | None = None,
         headers: dict[str, str] | None = None,
     ) -> httpx.Response:
+        merged_headers = dict(build_upstream_auth_headers(self.config))
+        if headers:
+            merged_headers.update(headers)
         return await self._client.post(
             "/chat/completions",
             json=payload,
             timeout=timeout_seconds or self.config.timeout_seconds,
-            headers=headers,
+            headers=merged_headers,
         )
 
     async def chat_completions(
@@ -129,12 +132,15 @@ class OpenAICompatClient:
         req["model"] = self.config.upstream_model_name
 
         try:
+            merged_headers = dict(build_upstream_auth_headers(self.config))
+            if headers:
+                merged_headers.update(headers)
             async with self._client.stream(
                 "POST",
                 "/chat/completions",
                 json=req,
                 timeout=self.config.timeout_seconds,
-                headers=headers,
+                headers=merged_headers,
             ) as response:
                 if response.status_code >= 400:
                     body = (await response.aread()).decode("utf-8", errors="ignore")

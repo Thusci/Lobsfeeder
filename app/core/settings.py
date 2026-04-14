@@ -38,14 +38,32 @@ class HealthConfig(BaseModel):
 class ModelConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    provider: Literal["openai_compatible"]
+    provider: Literal["openai_compatible", "openai-codex-oauth"]
+    provider_group: str | None = None
     base_url: str
-    api_key: str
+    api_key: str | None = None
+    oauth_token_path: str | None = None
     upstream_model_name: str
     timeout_seconds: int = Field(default=60, ge=1, le=600)
     retry: RetryConfig = Field(default_factory=RetryConfig)
     limits: LimitConfig
     health: HealthConfig = Field(default_factory=HealthConfig)
+
+    @model_validator(mode="after")
+    def validate_provider_credentials(self) -> "ModelConfig":
+        if self.provider == "openai_compatible" and not (self.api_key or "").strip():
+            raise ValueError("api_key is required for provider=openai_compatible")
+
+        if self.provider == "openai-codex-oauth":
+            token_path = (self.oauth_token_path or "").strip()
+            if not token_path:
+                self.oauth_token_path = str(Path("~/.codex/auth.json").expanduser())
+            self.api_key = None
+
+        if not (self.provider_group or "").strip():
+            self.provider_group = self.provider
+
+        return self
 
 
 class FallbackPolicyConfig(BaseModel):
@@ -108,6 +126,8 @@ class ServerConfig(BaseModel):
     max_message_chars: int = Field(default=200000, ge=1, le=10000000)
     max_tool_definition_chars: int = Field(default=400000, ge=1, le=10000000)
     global_limits: GlobalLimitConfig = Field(default_factory=GlobalLimitConfig)
+    config_source: Literal["file", "db"] = "file"
+    db_path: str = "config/router.db"
     router_api_keys: list[str] = Field(default_factory=list)
 
 

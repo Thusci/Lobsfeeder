@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>OpenClaw Router Control</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260414-provider-oauth" />
   </head>
   <body>
     <main class="page">
@@ -57,6 +57,59 @@
           </div>
         </div>
         <pre class="output" id="ops-output">Click a button to query the router.</pre>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Config Manager (DB)</h2>
+          <div class="panel-actions">
+            <button class="btn ghost" id="btn-config-load">Load</button>
+            <button class="btn ghost" id="btn-config-validate">Validate</button>
+            <button class="btn" id="btn-config-save">Save + Apply</button>
+          </div>
+        </div>
+        <label class="field">
+          <span>Config JSON</span>
+          <textarea id="config-json" rows="10"></textarea>
+        </label>
+        <pre class="output" id="config-output">DB config not loaded.</pre>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Providers &amp; Models</h2>
+          <div class="panel-actions">
+            <button class="btn ghost" id="btn-models-validate">Validate Edits</button>
+            <button class="btn" id="btn-models-save">Save To DB</button>
+            <button class="btn" id="btn-provider-add">New Provider</button>
+            <button class="btn ghost" id="btn-models-load">Load From DB</button>
+          </div>
+        </div>
+        <div class="editor-toolbar">
+          <div class="editor-state" id="editor-state">No draft loaded</div>
+          <div class="editor-actions">
+            <button class="btn ghost" id="btn-discard-draft">Discard Draft</button>
+          </div>
+        </div>
+        <div class="inline-creator hidden" id="provider-creator">
+          <label class="field compact">
+            <span>Provider Group Name</span>
+            <input id="provider-name-input" type="text" placeholder="openai_compatible" />
+          </label>
+          <label class="field compact">
+            <span>Provider Type</span>
+            <select id="provider-type-input">
+              <option value="openai_compatible">openai_compatible</option>
+              <option value="openai-codex-oauth">openai-codex-oauth</option>
+            </select>
+          </label>
+          <div class="panel-actions">
+            <button class="btn" id="btn-provider-create">Create Provider</button>
+            <button class="btn ghost" id="btn-provider-cancel">Cancel</button>
+          </div>
+        </div>
+        <div class="muted" id="models-summary">Load from DB to visualize providers.</div>
+        <div class="provider-sections" id="provider-cards"></div>
       </section>
 
       <section class="panel">
@@ -114,6 +167,6 @@
         <pre class="output" id="chat-output">Ready.</pre>
       </section>
     </main>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20260414-provider-oauth"></script>
   </body>
 </html>

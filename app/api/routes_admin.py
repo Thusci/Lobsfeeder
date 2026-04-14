@@ -1,0 +1,69 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Request
+from pydantic import ValidationError as PydanticValidationError
+
+from app.api.deps import enforce_router_auth, get_services
+from app.core.config_store import ConfigStore
+from app.core.errors import ValidationError
+from app.core.lifecycle import build_services, close_services
+from app.core.settings import AppConfig
+
+
+router = APIRouter(tags=["admin"])
+
+
+@router.get("/admin/config")
+async def get_config(request: Request) -> dict[str, object]:
+    services = get_services(request)
+    enforce_router_auth(request, services)
+    config_store: ConfigStore | None = getattr(request.app.state, "config_store", None)
+    if services.config.server.config_source == "db" and config_store is not None:
+        stored = config_store.get_config()
+        return {
+            "source": "db",
+            "updated_at": stored.updated_at if stored else None,
+            "config": services.config.model_dump(),
+        }
+    return {"source": "file", "config": services.config.model_dump()}
+
+
+@router.post("/admin/config/validate")
+async def validate_config(request: Request) -> dict[str, object]:
+    services = get_services(request)
+    enforce_router_auth(request, services)
+    payload = await request.json()
+    try:
+        AppConfig.model_validate(payload)
+    except PydanticValidationError as exc:
+        raise ValidationError(str(exc)) from exc
+    return {"valid": True}
+
+
+@router.put("/admin/config")
+async def update_config(request: Request) -> dict[str, object]:
+    services = get_services(request)
+    enforce_router_auth(request, services)
+    if services.config.server.config_source != "db":
+        raise ValidationError("config_source is not set to db; updates are disabled")
+    config_store: ConfigStore | None = getattr(request.app.state, "config_store", None)
+    if config_store is None:
+        raise ValidationError("Config store is not initialized")
+
+    payload = await request.json()
+    try:
+        new_config = AppConfig.model_validate(payload)
+    except PydanticValidationError as exc:
+        raise ValidationError(str(exc)) from exc
+    lock = getattr(request.app.state, "config_lock", None)
+    if lock is None:
+        raise ValidationError("Config lock is not initialized")
+
+    async with lock:
+        new_services = await build_services(new_config)
+        old_services = request.app.state.services
+        request.app.state.services = new_services
+        config_store.set_config(new_config.model_dump())
+        await close_services(old_services)
+
+    return {"status": "ok"}

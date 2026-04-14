@@ -12,5 +12,7 @@ services:
       - MODEL_D_API_KEY=${MODEL_D_API_KEY:-demo}
     volumes:
       - ./config/config.example.yaml:/app/config/config.yaml:ro
+      - ./data:/app/data
+      - ${HOME}/.codex:/root/.codex:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"

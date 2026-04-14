@@ -4,6 +4,7 @@ OpenAI-compatible 路由网关，位于 OpenClaw 上游。
 
 它支持：
 - `POST /v1/chat/completions`（OpenAI 风格）
+- 上游 provider：`openai_compatible`、`openai-codex-oauth`
 - 评估模型先分类，再按难度路由到目标模型
 - 每模型 RPM/TPM/并发限制
 - 可选全局 RPM/并发限制
@@ -41,6 +42,9 @@ docker compose up --build
 - `GET /metrics`
 - `GET /debug/models`（启用 router api key 时需鉴权）
 - `GET /ui` 控制台前端
+- `GET /admin/config`（需鉴权）
+- `POST /admin/config/validate`（需鉴权）
+- `PUT /admin/config`（需鉴权，且需 `config_source=db`）
 
 ## 路由行为
 
@@ -64,6 +68,17 @@ python -m pytest -q
 ## 控制台前端
 
 启动后访问 `http://<host>:<port>/ui`，可进行健康检查、查看指标，并发送普通或流式 chat 请求。
+
+## DB 配置模式
+
+如果需要通过 UI 管理模型提供商，请在配置中设置：
+- `server.config_source: db`
+- `server.db_path: /app/data/router.db`
+
+Docker Compose 已挂载 `./data:/app/data`，UI 中的 Config Manager 会读写该数据库并热切换服务配置。
+默认示例配置已使用 `server.config_source: db`，因此通过 `docker compose up` 启动后，UI 中的编辑和保存会持久化到 `./data/router.db`。
+为避免宿主机挂载目录的权限问题，容器默认以可写方式运行 SQLite 数据目录。
+若使用 `openai-codex-oauth`，Compose 还会将宿主机 `${HOME}/.codex` 只读挂载到容器 `/root/.codex`，默认 token 路径为 `/root/.codex/auth.json`。
 
 当前测试覆盖：
 - 配置校验

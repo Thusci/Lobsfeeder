@@ -11,6 +11,8 @@ server:
   global_limits:
     total_rpm:
     total_concurrency:
+  config_source: db
+  db_path: /app/data/router.db
   router_api_keys: []
 
 routing:
@@ -42,6 +44,7 @@ routing:
 models:
   model_a:
     provider: openai_compatible
+    provider_group: openai
     base_url: http://host.docker.internal:9001/v1
     api_key: ${MODEL_A_API_KEY}
     upstream_model_name: judge-model
@@ -60,6 +63,7 @@ models:
 
   model_b:
     provider: openai_compatible
+    provider_group: openai
     base_url: http://host.docker.internal:9002/v1
     api_key: ${MODEL_B_API_KEY}
     upstream_model_name: cheap-fast-model
@@ -78,6 +82,7 @@ models:
 
   model_c:
     provider: openai_compatible
+    provider_group: openai
     base_url: http://host.docker.internal:9003/v1
     api_key: ${MODEL_C_API_KEY}
     upstream_model_name: balanced-model
@@ -96,6 +101,7 @@ models:
 
   model_d:
     provider: openai_compatible
+    provider_group: openai
     base_url: http://host.docker.internal:9004/v1
     api_key: ${MODEL_D_API_KEY}
     upstream_model_name: strongest-model
@@ -126,3 +132,23 @@ streaming:
   enabled: true
   evaluator_streaming: false
   passthrough_streaming: true
+
+# Example OAuth-backed OpenAI model:
+#   model_codex:
+#     provider: openai-codex-oauth
+#     provider_group: openai
+#     base_url: https://api.openai.com/v1
+#     oauth_token_path: /root/.codex/auth.json
+#     upstream_model_name: gpt-5.1-codex
+#     timeout_seconds: 120
+#     retry:
+#       max_attempts: 1
+#       backoff_initial_ms: 500
+#       backoff_max_ms: 2000
+#     limits:
+#       rpm: 60
+#       tpm: 120000
+#       concurrency: 8
+#     health:
+#       failure_threshold: 5
+#       cooldown_seconds: 30
