@@ -40,6 +40,7 @@ docker compose up --build
 - `GET /readyz`
 - `GET /metrics`
 - `GET /debug/models`（启用 router api key 时需鉴权）
+- `GET /ui` 控制台前端
 
 ## 路由行为
 
@@ -59,6 +60,10 @@ docker compose up --build
 ```bash
 python -m pytest -q
 ```
+
+## 控制台前端
+
+启动后访问 `http://<host>:<port>/ui`，可进行健康检查、查看指标，并发送普通或流式 chat 请求。
 
 当前测试覆盖：
 - 配置校验

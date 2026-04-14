@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes_chat import router as chat_router
 from app.api.routes_health import router as health_router
@@ -69,6 +70,7 @@ def create_app(config: AppConfig | None = None, config_path: str | None = None) 
 
     app.include_router(chat_router)
     app.include_router(health_router)
+    app.mount("/ui", StaticFiles(directory="app/ui", html=True), name="ui")
     return app
 
 

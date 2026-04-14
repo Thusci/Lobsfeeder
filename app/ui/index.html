@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>OpenClaw Router Control</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">OpenClaw Router</p>
+          <h1>Control Console</h1>
+          <p class="subhead">Route, probe, and debug your gateway without leaving the browser.</p>
+        </div>
+        <div class="status-card" id="status-card">
+          <div class="status-label">Status</div>
+          <div class="status-value" id="status-value">Unknown</div>
+          <div class="status-meta" id="status-meta">Ready: --</div>
+        </div>
+      </header>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Connection</h2>
+          <button class="btn" id="btn-refresh">Refresh Status</button>
+        </div>
+        <div class="grid">
+          <label class="field">
+            <span>Base URL</span>
+            <input id="base-url" type="text" value="" placeholder="Leave empty for same origin" />
+          </label>
+          <label class="field">
+            <span>Router API Key</span>
+            <input id="api-key" type="password" placeholder="Optional Bearer token" />
+          </label>
+          <label class="field">
+            <span>X-Request-ID</span>
+            <input id="request-id" type="text" placeholder="Optional" />
+          </label>
+          <label class="field">
+            <span>Timeout (ms)</span>
+            <input id="timeout-ms" type="number" min="100" value="120000" />
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Router Ops</h2>
+          <div class="panel-actions">
+            <button class="btn ghost" id="btn-health">/healthz</button>
+            <button class="btn ghost" id="btn-ready">/readyz</button>
+            <button class="btn ghost" id="btn-metrics">/metrics</button>
+            <button class="btn ghost" id="btn-debug">/debug/models</button>
+          </div>
+        </div>
+        <pre class="output" id="ops-output">Click a button to query the router.</pre>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Chat Completions</h2>
+          <div class="panel-actions">
+            <button class="btn" id="btn-send">Send</button>
+            <button class="btn ghost" id="btn-stream">Stream</button>
+            <button class="btn ghost" id="btn-reset">Reset Template</button>
+          </div>
+        </div>
+        <div class="grid two">
+          <label class="field">
+            <span>Model</span>
+            <input id="model" type="text" value="auto" />
+          </label>
+          <label class="field">
+            <span>Temperature</span>
+            <input id="temperature" type="number" step="0.1" value="0.7" />
+          </label>
+          <label class="field">
+            <span>Max Tokens</span>
+            <input id="max-tokens" type="number" value="256" />
+          </label>
+          <label class="field">
+            <span>Stream</span>
+            <select id="stream-flag">
+              <option value="false" selected>False</option>
+              <option value="true">True</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Messages (JSON array)</span>
+          <textarea id="messages" rows="8"></textarea>
+        </label>
+
+        <label class="field">
+          <span>Tools (optional JSON array)</span>
+          <textarea id="tools" rows="5" placeholder="[]"></textarea>
+        </label>
+
+        <div class="grid two">
+          <label class="field">
+            <span>Tool Choice (optional JSON or string)</span>
+            <input id="tool-choice" type="text" placeholder="auto" />
+          </label>
+          <label class="field">
+            <span>Response Format (optional JSON)</span>
+            <input id="response-format" type="text" placeholder='{"type":"json_object"}' />
+          </label>
+        </div>
+
+        <pre class="output" id="chat-output">Ready.</pre>
+      </section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>
