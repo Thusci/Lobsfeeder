@@ -30,6 +30,7 @@ const configJsonInput = document.getElementById("config-json");
 const providerState = new Map();
 let currentConfig = null;
 let currentConfigSource = "unknown";
+let currentConfigWritable = false;
 let lastLoadedConfigJson = "";
 let hasUnsavedChanges = false;
 const PROVIDER_OPTIONS = ["openai_compatible", "openai-codex-oauth"];
@@ -136,9 +137,14 @@ async function loadConfig() {
   try {
     const data = await callJson("/admin/config");
     currentConfigSource = data.source || "unknown";
+    currentConfigWritable = Boolean(data.writable);
     currentConfig = data.config;
     applyLoadedConfig(currentConfig);
     configOutput.textContent = buildConfigStatus(`Loaded from ${currentConfigSource}.`);
+    if (data.startup_warning) {
+      configOutput.textContent += `\nWarning: ${data.startup_warning}`;
+      setEditorState("Loaded with recovery warning", "warning");
+    }
     renderProviderCards(currentConfig);
   } catch (err) {
     configOutput.textContent = String(err.message || err);
@@ -150,11 +156,15 @@ async function loadModels() {
   try {
     const data = await callJson("/admin/config");
     currentConfigSource = data.source || "unknown";
+    currentConfigWritable = Boolean(data.writable);
     currentConfig = data.config;
     applyLoadedConfig(currentConfig);
     renderProviderCards(currentConfig);
     updateModelsSummary(`Loaded ${countModels(currentConfig)} models from ${currentConfigSource}.`);
-    setEditorState("Config loaded", "ready");
+    setEditorState(data.startup_warning ? "Loaded with recovery warning" : "Config loaded", data.startup_warning ? "warning" : "ready");
+    if (data.startup_warning) {
+      configOutput.textContent = buildConfigStatus(`Loaded from ${currentConfigSource}.`) + `\nWarning: ${data.startup_warning}`;
+    }
   } catch (err) {
     updateModelsSummary(String(err.message || err));
     providerCards.innerHTML = "";
@@ -183,6 +193,7 @@ async function saveConfig() {
     currentConfig = payload;
     renderProviderCards(currentConfig);
     currentConfigSource = "db";
+    currentConfigWritable = true;
     markPersisted();
     configOutput.textContent = buildConfigStatus("Config saved and applied.");
     updateModelsSummary("Saved changes to DB.");
@@ -200,7 +211,7 @@ async function validateFromCards() {
 
 async function saveFromCards() {
   syncConfigFromTextareaIfNeeded();
-  if (currentConfigSource !== "db") {
+  if (!currentConfigWritable) {
     configOutput.textContent = buildConfigStatus(
       "Current config source is file. Switch server.config_source to db and restart Docker before saving."
     );
@@ -982,7 +993,7 @@ function buildConfigStatus(message) {
 function updateModelsSummary(message) {
   const sourceLabel = currentConfigSource === "unknown" ? "unknown" : currentConfigSource;
   const persistence =
-    currentConfigSource === "db" ? "Persistent DB mode" : "File mode: refresh will discard unsaved edits";
+    currentConfigWritable ? "Persistent DB mode" : "File mode: refresh will discard unsaved edits";
   modelsSummary.textContent = `${message} | Source: ${sourceLabel} | ${persistence}`;
 }
 
@@ -1025,7 +1036,7 @@ function markPersisted() {
 
 function updateEditorActions() {
   modelsValidateButton.disabled = !currentConfig;
-  modelsSaveButton.disabled = !currentConfig || !hasUnsavedChanges || currentConfigSource !== "db";
+  modelsSaveButton.disabled = !currentConfig || !hasUnsavedChanges || !currentConfigWritable;
   discardDraftButton.disabled = !hasUnsavedChanges;
 }
 

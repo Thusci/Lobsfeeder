@@ -18,14 +18,25 @@ async def get_config(request: Request) -> dict[str, object]:
     services = get_services(request)
     enforce_router_auth(request, services)
     config_store: ConfigStore | None = getattr(request.app.state, "config_store", None)
-    if services.config.server.config_source == "db" and config_store is not None:
+    runtime = getattr(request.app.state, "config_runtime", {}) or {}
+    requested_source = runtime.get("requested_source", services.config.server.config_source)
+    active_source = runtime.get("active_source", services.config.server.config_source)
+    writable = requested_source == "db" and config_store is not None
+    if writable:
         stored = config_store.get_config()
         return {
-            "source": "db",
+            "source": active_source,
+            "writable": True,
+            "startup_warning": runtime.get("startup_warning"),
             "updated_at": stored.updated_at if stored else None,
             "config": services.config.model_dump(),
         }
-    return {"source": "file", "config": services.config.model_dump()}
+    return {
+        "source": active_source,
+        "writable": False,
+        "startup_warning": runtime.get("startup_warning"),
+        "config": services.config.model_dump(),
+    }
 
 
 @router.post("/admin/config/validate")
@@ -64,6 +75,12 @@ async def update_config(request: Request) -> dict[str, object]:
         old_services = request.app.state.services
         request.app.state.services = new_services
         config_store.set_config(new_config.model_dump())
+        request.app.state.config_runtime = {
+            "requested_source": "db",
+            "active_source": "db",
+            "startup_warning": None,
+            "stored_updated_at": None,
+        }
         await close_services(old_services)
 
     return {"status": "ok"}

@@ -320,3 +320,19 @@ async def test_metrics_exposes_operational_gauges(app_config, respx_mock) -> Non
     assert resp.status_code == 200
     assert "current_per_model_concurrency" in resp.text
     assert "unhealthy_models_count" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_health_and_metrics_require_router_api_key_when_configured(app_config) -> None:
+    app_config.server.router_api_keys = ["secret"]
+
+    async with router_client(app_config) as client:
+        health = await client.get("/healthz")
+        ready = await client.get("/readyz")
+        metrics = await client.get("/metrics")
+        authorized = await client.get("/healthz", headers={"Authorization": "Bearer secret"})
+
+    assert health.status_code == 401
+    assert ready.status_code == 401
+    assert metrics.status_code == 401
+    assert authorized.status_code == 200

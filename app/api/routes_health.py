@@ -12,13 +12,16 @@ router = APIRouter(tags=["health"])
 
 
 @router.get("/healthz")
-async def healthz() -> dict[str, str]:
+async def healthz(request: Request) -> dict[str, str]:
+    services = get_services(request)
+    enforce_router_auth(request, services)
     return {"status": "ok"}
 
 
 @router.get("/readyz")
 async def readyz(request: Request) -> tuple[dict[str, object], int] | dict[str, object]:
     services = get_services(request)
+    enforce_router_auth(request, services)
     serving_models = _serving_models(request)
     healthy_models = sorted(model_key for model_key in serving_models if services.health.is_healthy(model_key))
     ready = bool(services.config.models) and bool(serving_models) and bool(healthy_models)
@@ -36,6 +39,7 @@ async def readyz(request: Request) -> tuple[dict[str, object], int] | dict[str, 
 @router.get("/metrics")
 async def metrics(request: Request) -> PlainTextResponse:
     services = get_services(request)
+    enforce_router_auth(request, services)
     if not services.config.telemetry.expose_metrics:
         raise UpstreamClientError("Metrics endpoint is disabled", status_code=404)
     health = services.health.snapshot()

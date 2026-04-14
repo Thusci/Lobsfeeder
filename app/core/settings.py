@@ -117,7 +117,7 @@ class ServerConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     host: str = "0.0.0.0"
-    port: int = Field(default=8080, ge=1, le=65535)
+    port: int = Field(default=8888, ge=1, le=65535)
     request_timeout_seconds: int = Field(default=120, ge=1, le=3600)
     max_request_body_mb: int = Field(default=8, ge=1, le=128)
     max_messages: int = Field(default=256, ge=1, le=10000)

@@ -25,7 +25,7 @@ export MODEL_B_API_KEY=...
 export MODEL_C_API_KEY=...
 export MODEL_D_API_KEY=...
 export ROUTER_CONFIG=config/config.yaml
-uvicorn app.main:app --host 0.0.0.0 --port 8080
+uvicorn app.main:app --host 0.0.0.0 --port 8888
 ```
 
 ## Docker
@@ -67,7 +67,7 @@ python -m pytest -q
 
 ## 控制台前端
 
-启动后访问 `http://<host>:<port>/ui`，可进行健康检查、查看指标，并发送普通或流式 chat 请求。
+启动后访问 `http://<host>:8888/ui`，可进行健康检查、查看指标，并发送普通或流式 chat 请求。
 
 ## DB 配置模式
 
