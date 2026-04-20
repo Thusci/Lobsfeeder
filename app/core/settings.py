@@ -42,6 +42,8 @@ class ModelConfig(BaseModel):
     provider_group: str | None = None
     base_url: str
     api_key: str | None = None
+    api_key_header: str | None = "Authorization"
+    api_key_prefix: str | None = "Bearer "
     oauth_token_path: str | None = None
     upstream_model_name: str
     timeout_seconds: int = Field(default=60, ge=1, le=600)
@@ -51,6 +53,11 @@ class ModelConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_provider_credentials(self) -> "ModelConfig":
+        self.api_key_header = (self.api_key_header or "Authorization").strip()
+        self.api_key_prefix = self.api_key_prefix or ""
+        if not self.api_key_header:
+            raise ValueError("api_key_header must not be empty")
+
         if self.provider == "openai_compatible" and not (self.api_key or "").strip():
             raise ValueError("api_key is required for provider=openai_compatible")
 
@@ -59,6 +66,8 @@ class ModelConfig(BaseModel):
             if not token_path:
                 self.oauth_token_path = str(Path("~/.codex/auth.json").expanduser())
             self.api_key = None
+            self.api_key_header = "Authorization"
+            self.api_key_prefix = "Bearer "
 
         if not (self.provider_group or "").strip():
             self.provider_group = self.provider
@@ -129,6 +138,7 @@ class ServerConfig(BaseModel):
     config_source: Literal["file", "db"] = "file"
     db_path: str = "config/router.db"
     router_api_keys: list[str] = Field(default_factory=list)
+    admin_api_keys: list[str] = Field(default_factory=list)
 
 
 class TelemetryConfig(BaseModel):

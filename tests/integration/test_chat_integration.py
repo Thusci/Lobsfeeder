@@ -188,6 +188,36 @@ async def test_router_auth_returns_401(app_config) -> None:
 
 
 @pytest.mark.asyncio
+async def test_router_auth_accepts_x_api_key_header(app_config, respx_mock) -> None:
+    app_config.server.router_api_keys = ["secret"]
+    _mock_upstream(respx_mock, "upstream-b", httpx.Response(200, json=_chat_ok()))
+
+    async with router_client(app_config) as client:
+        resp = await client.post(
+            "/v1/chat/completions",
+            headers={"X-API-Key": "secret"},
+            json={"model": "force:model_b", "messages": [{"role": "user", "content": "hi"}]},
+        )
+
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_router_auth_accepts_api_key_header(app_config, respx_mock) -> None:
+    app_config.server.router_api_keys = ["secret"]
+    _mock_upstream(respx_mock, "upstream-b", httpx.Response(200, json=_chat_ok()))
+
+    async with router_client(app_config) as client:
+        resp = await client.post(
+            "/v1/chat/completions",
+            headers={"api-key": "secret"},
+            json={"model": "force:model_b", "messages": [{"role": "user", "content": "hi"}]},
+        )
+
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_stream_passthrough(app_config, respx_mock) -> None:
     _mock_upstream(respx_mock, "upstream-a", httpx.Response(200, json=EVALUATOR_OK))
     _mock_upstream(

@@ -73,7 +73,12 @@ function buildHeaders() {
   const headers = { "Content-Type": "application/json" };
   const apiKey = apiKeyInput.value.trim();
   if (apiKey) {
-    headers["Authorization"] = `Bearer ${apiKey}`;
+    if (/^Bearer\s+/i.test(apiKey)) {
+      headers["Authorization"] = apiKey;
+    } else {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+      headers["X-API-Key"] = apiKey;
+    }
   }
   const requestId = requestIdInput.value.trim();
   if (requestId) {
@@ -87,9 +92,53 @@ function getTimeout() {
   return Number.isFinite(value) ? value : 120000;
 }
 
+function resolveUrl(path) {
+  return `${resolveBaseUrl()}${path}`;
+}
+
+function parseResponsePayload(text, contentType, responseType = "auto") {
+  if (!text) {
+    return responseType === "text" ? "" : {};
+  }
+
+  if (responseType === "text") {
+    return text;
+  }
+
+  const normalizedType = String(contentType || "").toLowerCase();
+  const expectsJson = responseType === "json" || normalizedType.includes("application/json");
+  if (expectsJson) {
+    return JSON.parse(text);
+  }
+  return text;
+}
+
+async function requestApi(path, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), getTimeout());
+  const method = options.method || "GET";
+  const headers = options.headers || buildHeaders();
+
+  try {
+    const response = await fetch(resolveUrl(path), {
+      method,
+      headers,
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${text}`);
+    }
+    return parseResponsePayload(text, response.headers.get("content-type"), options.responseType);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function refreshStatus() {
   try {
-    const ready = await callJson("/readyz", { quiet: true });
+    const ready = await requestApi("/readyz");
     statusValue.textContent = ready.ready ? "Ready" : "Not Ready";
     statusMeta.textContent = `Ready: ${ready.ready} | Models: ${ready.models}`;
     statusValue.style.color = ready.ready ? "#7bff9e" : "#f2b705";
@@ -103,39 +152,19 @@ async function refreshStatus() {
 async function callOps(path) {
   opsOutput.textContent = "Loading...";
   try {
-    const data = await callJson(path);
-    opsOutput.textContent = formatJson(data);
+    const data = await requestApi(path, {
+      responseType: path === "/metrics" ? "text" : "auto",
+    });
+    opsOutput.textContent = typeof data === "string" ? data : formatJson(data);
   } catch (err) {
     opsOutput.textContent = String(err.message || err);
-  }
-}
-
-async function callJson(path, options = {}) {
-  const base = resolveBaseUrl();
-  const url = `${base}${path}`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), getTimeout());
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: buildHeaders(),
-      signal: controller.signal,
-    });
-    const text = await response.text();
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${text}`);
-    }
-    if (options.raw) return text;
-    return text ? JSON.parse(text) : {};
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
 async function loadConfig() {
   configOutput.textContent = "Loading config...";
   try {
-    const data = await callJson("/admin/config");
+    const data = await requestApi("/admin/config");
     currentConfigSource = data.source || "unknown";
     currentConfigWritable = Boolean(data.writable);
     currentConfig = data.config;
@@ -154,7 +183,7 @@ async function loadConfig() {
 async function loadModels() {
   updateModelsSummary("Loading models...");
   try {
-    const data = await callJson("/admin/config");
+    const data = await requestApi("/admin/config");
     currentConfigSource = data.source || "unknown";
     currentConfigWritable = Boolean(data.writable);
     currentConfig = data.config;
@@ -176,7 +205,7 @@ async function validateConfig() {
   configOutput.textContent = "Validating...";
   try {
     const payload = parseJsonObject(configJsonInput.value, "config");
-    await callJsonWithBody("/admin/config/validate", payload);
+    await requestApi("/admin/config/validate", { method: "POST", body: payload });
     configOutput.textContent = buildConfigStatus("Config is valid.");
     setEditorState("Validation passed", "success");
   } catch (err) {
@@ -189,7 +218,7 @@ async function saveConfig() {
   configOutput.textContent = "Saving...";
   try {
     const payload = parseJsonObject(configJsonInput.value, "config");
-    await callJsonWithBody("/admin/config", payload, "PUT");
+    await requestApi("/admin/config", { method: "PUT", body: payload });
     currentConfig = payload;
     renderProviderCards(currentConfig);
     currentConfigSource = "db";
@@ -226,16 +255,11 @@ async function sendChat() {
   chatOutput.textContent = "Sending...";
   try {
     const payload = buildChatPayload(false);
-    const response = await fetch(`${resolveBaseUrl()}/v1/chat/completions`, {
+    const response = await requestApi("/v1/chat/completions", {
       method: "POST",
-      headers: buildHeaders(),
-      body: JSON.stringify(payload),
+      body: payload,
     });
-    const text = await response.text();
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${text}`);
-    }
-    chatOutput.textContent = formatJson(JSON.parse(text));
+    chatOutput.textContent = formatJson(response);
   } catch (err) {
     chatOutput.textContent = String(err.message || err);
   }
@@ -243,12 +267,15 @@ async function sendChat() {
 
 async function streamChat() {
   chatOutput.textContent = "Streaming...";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), getTimeout());
   try {
     const payload = buildChatPayload(true);
-    const response = await fetch(`${resolveBaseUrl()}/v1/chat/completions`, {
+    const response = await fetch(resolveUrl("/v1/chat/completions"), {
       method: "POST",
       headers: buildHeaders(),
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
     if (!response.ok) {
       const text = await response.text();
@@ -266,6 +293,8 @@ async function streamChat() {
     }
   } catch (err) {
     chatOutput.textContent = String(err.message || err);
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -337,28 +366,6 @@ function resetTemplate() {
 
 function formatJson(data) {
   return JSON.stringify(data, null, 2);
-}
-
-async function callJsonWithBody(path, payload, method = "POST") {
-  const base = resolveBaseUrl();
-  const url = `${base}${path}`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), getTimeout());
-  try {
-    const response = await fetch(url, {
-      method,
-      headers: buildHeaders(),
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    const text = await response.text();
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${text}`);
-    }
-    return text ? JSON.parse(text) : {};
-  } finally {
-    clearTimeout(timeout);
-  }
 }
 
 function countModels(config) {
@@ -535,6 +542,15 @@ function buildModelCard(name, model) {
         type: "password",
         label: "API Key",
         fullWidth: true,
+        hidden: model && model.provider === "openai-codex-oauth",
+      }),
+      createBoundField(name, "api_key_header", model && model.api_key_header, {
+        label: "API Key Header",
+        hidden: model && model.provider === "openai-codex-oauth",
+      }),
+      createBoundField(name, "api_key_prefix", model && model.api_key_prefix, {
+        label: "API Key Prefix",
+        placeholder: "Bearer ",
         hidden: model && model.provider === "openai-codex-oauth",
       }),
       createBoundField(name, "oauth_token_path", model && model.oauth_token_path, {
@@ -853,6 +869,8 @@ function buildDefaultModel(providerGroup, providerType = "openai_compatible") {
     provider_group: providerGroup,
     base_url: "",
     api_key: providerType === "openai_compatible" ? "" : null,
+    api_key_header: "Authorization",
+    api_key_prefix: "Bearer ",
     oauth_token_path: providerType === "openai-codex-oauth" ? "~/.codex/auth.json" : null,
     upstream_model_name: "",
     timeout_seconds: 60,
@@ -975,6 +993,8 @@ function applyProviderDefaults(model, providerType) {
   if (!model) return;
   if (providerType === "openai-codex-oauth") {
     model.api_key = null;
+    model.api_key_header = "Authorization";
+    model.api_key_prefix = "Bearer ";
     model.oauth_token_path = model.oauth_token_path || "~/.codex/auth.json";
     if (!model.base_url) {
       model.base_url = "https://api.openai.com/v1";
@@ -984,6 +1004,10 @@ function applyProviderDefaults(model, providerType) {
 
   model.oauth_token_path = null;
   model.api_key = model.api_key || "";
+  model.api_key_header = model.api_key_header || "Authorization";
+  if (model.api_key_prefix === null || model.api_key_prefix === undefined) {
+    model.api_key_prefix = "Bearer ";
+  }
 }
 
 function buildConfigStatus(message) {

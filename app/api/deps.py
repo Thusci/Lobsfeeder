@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 from typing import Any
 
 from fastapi import Request
@@ -21,12 +22,14 @@ def enforce_router_auth(request: Request, services: RouterServices) -> None:
     if not keys:
         return
 
-    auth = request.headers.get("authorization", "")
-    if not auth.startswith("Bearer "):
-        raise AuthenticationError("Missing or invalid Authorization header")
+    token = _extract_router_api_key(request)
+    if token is None:
+        raise AuthenticationError(
+            "Missing API key. Use Authorization: Bearer <key>, X-API-Key, or api-key."
+        )
 
-    token = auth.removeprefix("Bearer ").strip()
-    if token not in keys:
+    normalized_keys = [key.strip() for key in keys if key.strip()]
+    if not any(secrets.compare_digest(token, key) for key in normalized_keys):
         raise AuthenticationError("Invalid router API key")
 
 
@@ -65,3 +68,18 @@ def _content_length(content: Any) -> int:
     if content is None:
         return 0
     return len(str(content))
+
+
+def _extract_router_api_key(request: Request) -> str | None:
+    auth = request.headers.get("authorization")
+    if auth:
+        scheme, _, credentials = auth.partition(" ")
+        if scheme.lower() == "bearer" and credentials.strip():
+            return credentials.strip()
+
+    for header_name in ("x-api-key", "api-key"):
+        value = request.headers.get(header_name)
+        if value and value.strip():
+            return value.strip()
+
+    return None

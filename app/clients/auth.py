@@ -12,7 +12,9 @@ def build_upstream_auth_headers(config: ModelConfig) -> dict[str, str]:
         api_key = (config.api_key or "").strip()
         if not api_key:
             raise UpstreamAuthError("Missing API key for openai_compatible provider")
-        return {"Authorization": f"Bearer {api_key}"}
+        header_name = (config.api_key_header or "Authorization").strip()
+        header_prefix = config.api_key_prefix or ""
+        return {header_name: f"{header_prefix}{api_key}"}
 
     if config.provider == "openai-codex-oauth":
         token_path = Path((config.oauth_token_path or "~/.codex/auth.json")).expanduser()

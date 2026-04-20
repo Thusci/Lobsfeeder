@@ -13,6 +13,10 @@ server:
     total_concurrency:
   config_source: db
   db_path: /app/data/router.db
+  # Router auth supports:
+  # - Authorization: Bearer <key>
+  # - X-API-Key: <key>
+  # - api-key: <key>
   router_api_keys: []
 
 routing:
@@ -42,11 +46,19 @@ routing:
   allow_evaluator_as_candidate: false
 
 models:
+  # openai_compatible defaults:
+  # - api_key_header: Authorization
+  # - api_key_prefix: "Bearer "
+  # For upstreams that expect `api-key: <token>`, set:
+  # - api_key_header: api-key
+  # - api_key_prefix: ""
   model_a:
     provider: openai_compatible
     provider_group: openai
     base_url: http://host.docker.internal:9001/v1
     api_key: ${MODEL_A_API_KEY}
+    api_key_header: Authorization
+    api_key_prefix: "Bearer "
     upstream_model_name: judge-model
     timeout_seconds: 20
     retry:
