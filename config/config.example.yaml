@@ -18,6 +18,9 @@ server:
   # - X-API-Key: <key>
   # - api-key: <key>
   router_api_keys: []
+  # Admin/UI auth supports the same headers.
+  # If empty, /admin/* falls back to router_api_keys.
+  admin_api_keys: []
 
 routing:
   enabled: true

@@ -3,44 +3,69 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>OpenClaw Router Control</title>
-    <link rel="stylesheet" href="./styles.css?v=20260414-provider-oauth" />
+    <title>Lobsfeeder Control Console</title>
+    <link rel="stylesheet" href="./styles.css?v=20260421-i18n-admin-auth" />
   </head>
   <body>
     <main class="page">
       <header class="hero">
-        <div>
-          <p class="eyebrow">OpenClaw Router</p>
-          <h1>Control Console</h1>
-          <p class="subhead">Route, probe, and debug your gateway without leaving the browser.</p>
+        <div class="hero-copy">
+          <p class="eyebrow" data-i18n="hero.eyebrow">Lobsfeeder</p>
+          <h1 data-i18n="hero.title">Control Console</h1>
+          <p class="subhead" data-i18n="hero.subhead">Route, probe, and debug your gateway without leaving the browser.</p>
+          <p class="hero-disclaimer" data-i18n="hero.disclaimer">
+            Independent project. Not affiliated with the official OpenClaw project.
+          </p>
         </div>
-        <div class="status-card" id="status-card">
-          <div class="status-label">Status</div>
-          <div class="status-value" id="status-value">Unknown</div>
-          <div class="status-meta" id="status-meta">Ready: --</div>
+        <div class="hero-side">
+          <div class="locale-switch" aria-label="Language switch" data-i18n-aria-label="hero.languageSwitch">
+            <button class="mini-btn lang-btn" id="btn-lang-en" type="button" data-lang="en">EN</button>
+            <button class="mini-btn lang-btn" id="btn-lang-zh" type="button" data-lang="zh">中文</button>
+          </div>
+          <div class="status-card" id="status-card">
+            <div class="status-label" data-i18n="status.label">Status</div>
+            <div class="status-value" id="status-value">Unknown</div>
+            <div class="status-meta" id="status-meta">Ready: --</div>
+          </div>
         </div>
       </header>
 
       <section class="panel">
         <div class="panel-header">
-          <h2>Connection</h2>
-          <button class="btn" id="btn-refresh">Refresh Status</button>
+          <div class="panel-header-main">
+            <h2 data-i18n="connection.title">Connection</h2>
+            <p class="panel-copy" data-i18n="connection.copy">
+              Configure the router endpoint used by the browser console.
+            </p>
+          </div>
+          <button class="btn" id="btn-refresh" type="button" data-i18n="common.refresh">Refresh Status</button>
         </div>
         <div class="grid">
           <label class="field">
-            <span>Base URL</span>
-            <input id="base-url" type="text" value="" placeholder="Leave empty for same origin" />
+            <span data-i18n="connection.baseUrl">Base URL</span>
+            <input
+              id="base-url"
+              type="text"
+              value=""
+              placeholder="Leave empty for same origin"
+              data-i18n-placeholder="connection.baseUrlPlaceholder"
+            />
           </label>
           <label class="field">
-            <span>Router API Key</span>
-            <input id="api-key" type="password" placeholder="Raw key or Bearer token" />
+            <span data-i18n="connection.routerKey">Router API Key</span>
+            <input
+              id="api-key"
+              type="password"
+              placeholder="Raw key or Bearer token"
+              data-i18n-placeholder="connection.routerKeyPlaceholder"
+            />
           </label>
           <label class="field">
-            <span>X-Request-ID</span>
-            <input id="request-id" type="text" placeholder="Optional" />
+            <span data-i18n="connection.requestId">X-Request-ID</span>
+            <input id="request-id" type="text" placeholder="Optional" data-i18n-placeholder="common.optional" />
           </label>
           <label class="field">
-            <span>Timeout (ms)</span>
+            <span data-i18n="connection.timeout">Timeout (ms)</span>
             <input id="timeout-ms" type="number" min="100" value="120000" />
           </label>
         </div>
@@ -48,125 +73,197 @@
 
       <section class="panel">
         <div class="panel-header">
-          <h2>Router Ops</h2>
+          <div class="panel-header-main">
+            <h2 data-i18n="admin.title">Admin Access</h2>
+            <p class="panel-copy" data-i18n="admin.copy">
+              Unlock the management panels before loading or editing router configuration.
+            </p>
+          </div>
+          <div class="auth-status" id="admin-status" data-tone="locked">Locked</div>
+        </div>
+        <div class="grid">
+          <label class="field">
+            <span data-i18n="admin.keyLabel">Admin API Key</span>
+            <input
+              id="admin-api-key"
+              type="password"
+              placeholder="Use admin key, or leave empty to probe open admin routes"
+              data-i18n-placeholder="admin.keyPlaceholder"
+            />
+          </label>
+        </div>
+        <div class="panel-actions">
+          <button class="btn" id="btn-admin-unlock" type="button" data-i18n="admin.unlock">Unlock Admin</button>
+          <button class="btn ghost" id="btn-admin-lock" type="button" data-i18n="admin.lock">Lock</button>
+        </div>
+        <p class="muted" id="admin-note">Unlock the admin area to manage config and providers.</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-header-main">
+            <h2 data-i18n="ops.title">Router Ops</h2>
+            <p class="panel-copy" data-i18n="ops.copy">Probe health, readiness, metrics, and model debug endpoints.</p>
+          </div>
           <div class="panel-actions">
-            <button class="btn ghost" id="btn-health">/healthz</button>
-            <button class="btn ghost" id="btn-ready">/readyz</button>
-            <button class="btn ghost" id="btn-metrics">/metrics</button>
-            <button class="btn ghost" id="btn-debug">/debug/models</button>
+            <button class="btn ghost" id="btn-health" type="button">/healthz</button>
+            <button class="btn ghost" id="btn-ready" type="button">/readyz</button>
+            <button class="btn ghost" id="btn-metrics" type="button">/metrics</button>
+            <button class="btn ghost" id="btn-debug" type="button">/debug/models</button>
           </div>
         </div>
         <pre class="output" id="ops-output">Click a button to query the router.</pre>
       </section>
 
-      <section class="panel">
+      <section class="panel admin-panel" data-admin-panel="config" data-locked="true">
         <div class="panel-header">
-          <h2>Config Manager (DB)</h2>
+          <div class="panel-header-main">
+            <h2 data-i18n="config.title">Config Manager (DB)</h2>
+            <p class="panel-copy" data-i18n="config.copy">
+              Load, validate, and save the active router configuration.
+            </p>
+          </div>
           <div class="panel-actions">
-            <button class="btn ghost" id="btn-config-load">Load</button>
-            <button class="btn ghost" id="btn-config-validate">Validate</button>
-            <button class="btn" id="btn-config-save">Save + Apply</button>
+            <button class="btn ghost" id="btn-config-load" type="button" data-i18n="common.load">Load</button>
+            <button class="btn ghost" id="btn-config-validate" type="button" data-i18n="common.validate">Validate</button>
+            <button class="btn" id="btn-config-save" type="button" data-i18n="config.saveApply">Save + Apply</button>
           </div>
         </div>
-        <label class="field">
-          <span>Config JSON</span>
-          <textarea id="config-json" rows="10"></textarea>
-        </label>
-        <pre class="output" id="config-output">DB config not loaded.</pre>
+        <div class="panel-lock" id="config-lock-banner" data-i18n="admin.configLocked">
+          Unlock admin access before managing configuration.
+        </div>
+        <div class="admin-guarded">
+          <label class="field">
+            <span data-i18n="config.jsonLabel">Config JSON</span>
+            <textarea id="config-json" rows="10"></textarea>
+          </label>
+        </div>
+        <pre class="output" id="config-output">Admin config not loaded.</pre>
+      </section>
+
+      <section class="panel admin-panel" data-admin-panel="models" data-locked="true">
+        <div class="panel-header">
+          <div class="panel-header-main">
+            <h2 data-i18n="models.title">Providers &amp; Models</h2>
+            <p class="panel-copy" data-i18n="models.copy">
+              Edit providers, model endpoints, auth, limits, and health settings.
+            </p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn ghost" id="btn-models-validate" type="button" data-i18n="models.validateEdits">
+              Validate Edits
+            </button>
+            <button class="btn" id="btn-models-save" type="button" data-i18n="models.saveToDb">Save To DB</button>
+            <button class="btn" id="btn-provider-add" type="button" data-i18n="models.newProvider">New Provider</button>
+            <button class="btn ghost" id="btn-models-load" type="button" data-i18n="models.loadFromDb">Load From DB</button>
+          </div>
+        </div>
+        <div class="panel-lock" id="models-lock-banner" data-i18n="admin.modelsLocked">
+          Unlock admin access before editing providers and models.
+        </div>
+        <div class="admin-guarded">
+          <div class="editor-toolbar">
+            <div class="editor-state" id="editor-state" data-tone="ready">Unlock admin access to start editing</div>
+            <div class="editor-actions">
+              <button class="btn ghost" id="btn-discard-draft" type="button" data-i18n="models.discardDraft">
+                Discard Draft
+              </button>
+            </div>
+          </div>
+          <div class="inline-creator hidden" id="provider-creator">
+            <label class="field compact">
+              <span data-i18n="models.providerGroupName">Provider Group Name</span>
+              <input
+                id="provider-name-input"
+                type="text"
+                placeholder="openai_compatible"
+                data-i18n-placeholder="models.providerGroupPlaceholder"
+              />
+            </label>
+            <label class="field compact">
+              <span data-i18n="models.providerType">Provider Type</span>
+              <select id="provider-type-input">
+                <option value="openai_compatible">openai_compatible</option>
+                <option value="openai-codex-oauth">openai-codex-oauth</option>
+              </select>
+            </label>
+            <div class="panel-actions">
+              <button class="btn" id="btn-provider-create" type="button" data-i18n="models.createProvider">
+                Create Provider
+              </button>
+              <button class="btn ghost" id="btn-provider-cancel" type="button" data-i18n="common.cancel">Cancel</button>
+            </div>
+          </div>
+          <div class="muted" id="models-summary">Unlock admin access to load providers.</div>
+          <div class="provider-sections" id="provider-cards"></div>
+        </div>
       </section>
 
       <section class="panel">
         <div class="panel-header">
-          <h2>Providers &amp; Models</h2>
-          <div class="panel-actions">
-            <button class="btn ghost" id="btn-models-validate">Validate Edits</button>
-            <button class="btn" id="btn-models-save">Save To DB</button>
-            <button class="btn" id="btn-provider-add">New Provider</button>
-            <button class="btn ghost" id="btn-models-load">Load From DB</button>
+          <div class="panel-header-main">
+            <h2 data-i18n="chat.title">Chat Completions</h2>
+            <p class="panel-copy" data-i18n="chat.copy">
+              Send regular or streaming OpenAI-compatible chat requests through the router.
+            </p>
           </div>
-        </div>
-        <div class="editor-toolbar">
-          <div class="editor-state" id="editor-state">No draft loaded</div>
-          <div class="editor-actions">
-            <button class="btn ghost" id="btn-discard-draft">Discard Draft</button>
-          </div>
-        </div>
-        <div class="inline-creator hidden" id="provider-creator">
-          <label class="field compact">
-            <span>Provider Group Name</span>
-            <input id="provider-name-input" type="text" placeholder="openai_compatible" />
-          </label>
-          <label class="field compact">
-            <span>Provider Type</span>
-            <select id="provider-type-input">
-              <option value="openai_compatible">openai_compatible</option>
-              <option value="openai-codex-oauth">openai-codex-oauth</option>
-            </select>
-          </label>
           <div class="panel-actions">
-            <button class="btn" id="btn-provider-create">Create Provider</button>
-            <button class="btn ghost" id="btn-provider-cancel">Cancel</button>
-          </div>
-        </div>
-        <div class="muted" id="models-summary">Load from DB to visualize providers.</div>
-        <div class="provider-sections" id="provider-cards"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Chat Completions</h2>
-          <div class="panel-actions">
-            <button class="btn" id="btn-send">Send</button>
-            <button class="btn ghost" id="btn-stream">Stream</button>
-            <button class="btn ghost" id="btn-reset">Reset Template</button>
+            <button class="btn" id="btn-send" type="button" data-i18n="chat.send">Send</button>
+            <button class="btn ghost" id="btn-stream" type="button" data-i18n="chat.stream">Stream</button>
+            <button class="btn ghost" id="btn-reset" type="button" data-i18n="chat.resetTemplate">Reset Template</button>
           </div>
         </div>
         <div class="grid two">
           <label class="field">
-            <span>Model</span>
+            <span data-i18n="chat.model">Model</span>
             <input id="model" type="text" value="auto" />
           </label>
           <label class="field">
-            <span>Temperature</span>
+            <span data-i18n="chat.temperature">Temperature</span>
             <input id="temperature" type="number" step="0.1" value="0.7" />
           </label>
           <label class="field">
-            <span>Max Tokens</span>
+            <span data-i18n="chat.maxTokens">Max Tokens</span>
             <input id="max-tokens" type="number" value="256" />
           </label>
           <label class="field">
-            <span>Stream</span>
+            <span data-i18n="chat.streamMode">Stream</span>
             <select id="stream-flag">
-              <option value="false" selected>False</option>
-              <option value="true">True</option>
+              <option value="false" selected data-i18n="common.false">False</option>
+              <option value="true" data-i18n="common.true">True</option>
             </select>
           </label>
         </div>
 
         <label class="field">
-          <span>Messages (JSON array)</span>
+          <span data-i18n="chat.messages">Messages (JSON array)</span>
           <textarea id="messages" rows="8"></textarea>
         </label>
 
         <label class="field">
-          <span>Tools (optional JSON array)</span>
-          <textarea id="tools" rows="5" placeholder="[]"></textarea>
+          <span data-i18n="chat.tools">Tools (optional JSON array)</span>
+          <textarea id="tools" rows="5" placeholder="[]" data-i18n-placeholder="chat.toolsPlaceholder"></textarea>
         </label>
 
         <div class="grid two">
           <label class="field">
-            <span>Tool Choice (optional JSON or string)</span>
-            <input id="tool-choice" type="text" placeholder="auto" />
+            <span data-i18n="chat.toolChoice">Tool Choice (optional JSON or string)</span>
+            <input id="tool-choice" type="text" placeholder="auto" data-i18n-placeholder="chat.toolChoicePlaceholder" />
           </label>
           <label class="field">
-            <span>Response Format (optional JSON)</span>
-            <input id="response-format" type="text" placeholder='{"type":"json_object"}' />
+            <span data-i18n="chat.responseFormat">Response Format (optional JSON)</span>
+            <input
+              id="response-format"
+              type="text"
+              placeholder='{"type":"json_object"}'
+              data-i18n-placeholder="chat.responseFormatPlaceholder"
+            />
           </label>
         </div>
 
         <pre class="output" id="chat-output">Ready.</pre>
       </section>
     </main>
-    <script src="./app.js?v=20260414-provider-oauth"></script>
+    <script src="./app.js?v=20260421-i18n-admin-auth"></script>
   </body>
 </html>

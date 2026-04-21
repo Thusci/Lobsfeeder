@@ -40,7 +40,7 @@ streaming:
 ```
 
 各部分职责：
-- `server`: Web 服务监听、请求大小限制、router API key、配置存储方式
+- `server`: Web 服务监听、请求大小限制、router/admin API key、配置存储方式
 - `routing`: evaluator、难度等级、路由映射、fallback 策略
 - `models`: 上游 provider 定义、认证、限流、超时、健康参数
 - `telemetry`: 日志和指标开关
@@ -66,12 +66,18 @@ server:
   db_path: /app/data/router.db
   router_api_keys:
     - router-secret
+  admin_api_keys:
+    - admin-secret
 ```
 
 `router_api_keys` 生效后，以下头都可用于访问路由器：
 - `Authorization: Bearer <key>`
 - `X-API-Key: <key>`
 - `api-key: <key>`
+
+`admin_api_keys` 用于单独保护 `/admin/*` 管理接口。
+
+如果 `admin_api_keys` 为空，则 `/admin/*` 会回退使用 `router_api_keys`。
 
 ## 4. routing 配置
 
@@ -227,6 +233,7 @@ server:
 - 启动时若 DB 为空，会把当前文件配置写入 SQLite
 - 之后 UI 的保存操作会更新 DB，并重建服务实例
 - 如果 DB 中存的配置损坏，应用会回退到文件配置并记录启动告警
+- UI 内置中英双语切换，并在加载配置前要求先解锁管理面板
 
 ## 7. Docker 注意事项
 

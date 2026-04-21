@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 from pydantic import ValidationError as PydanticValidationError
 
-from app.api.deps import enforce_router_auth, get_services
+from app.api.deps import enforce_admin_auth, get_services
 from app.core.config_store import ConfigStore
 from app.core.errors import ValidationError
 from app.core.lifecycle import build_services, close_services
@@ -16,7 +16,7 @@ router = APIRouter(tags=["admin"])
 @router.get("/admin/config")
 async def get_config(request: Request) -> dict[str, object]:
     services = get_services(request)
-    enforce_router_auth(request, services)
+    enforce_admin_auth(request, services)
     config_store: ConfigStore | None = getattr(request.app.state, "config_store", None)
     runtime = getattr(request.app.state, "config_runtime", {}) or {}
     requested_source = runtime.get("requested_source", services.config.server.config_source)
@@ -42,7 +42,7 @@ async def get_config(request: Request) -> dict[str, object]:
 @router.post("/admin/config/validate")
 async def validate_config(request: Request) -> dict[str, object]:
     services = get_services(request)
-    enforce_router_auth(request, services)
+    enforce_admin_auth(request, services)
     payload = await request.json()
     try:
         AppConfig.model_validate(payload)
@@ -54,7 +54,7 @@ async def validate_config(request: Request) -> dict[str, object]:
 @router.put("/admin/config")
 async def update_config(request: Request) -> dict[str, object]:
     services = get_services(request)
-    enforce_router_auth(request, services)
+    enforce_admin_auth(request, services)
     if services.config.server.config_source != "db":
         raise ValidationError("config_source is not set to db; updates are disabled")
     config_store: ConfigStore | None = getattr(request.app.state, "config_store", None)

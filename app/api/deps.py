@@ -18,19 +18,22 @@ def get_services(request: Request) -> RouterServices:
 
 
 def enforce_router_auth(request: Request, services: RouterServices) -> None:
-    keys = services.config.server.router_api_keys
-    if not keys:
-        return
+    _enforce_api_keys(
+        request,
+        services.config.server.router_api_keys,
+        missing_message="Missing API key. Use Authorization: Bearer <key>, X-API-Key, or api-key.",
+        invalid_message="Invalid router API key",
+    )
 
-    token = _extract_router_api_key(request)
-    if token is None:
-        raise AuthenticationError(
-            "Missing API key. Use Authorization: Bearer <key>, X-API-Key, or api-key."
-        )
 
-    normalized_keys = [key.strip() for key in keys if key.strip()]
-    if not any(secrets.compare_digest(token, key) for key in normalized_keys):
-        raise AuthenticationError("Invalid router API key")
+def enforce_admin_auth(request: Request, services: RouterServices) -> None:
+    admin_keys = services.config.server.admin_api_keys or services.config.server.router_api_keys
+    _enforce_api_keys(
+        request,
+        admin_keys,
+        missing_message="Missing admin API key. Use Authorization: Bearer <key>, X-API-Key, or api-key.",
+        invalid_message="Invalid admin API key",
+    )
 
 
 def validate_request_limits(body: ChatCompletionRequest, services: RouterServices) -> None:
@@ -83,3 +86,22 @@ def _extract_router_api_key(request: Request) -> str | None:
             return value.strip()
 
     return None
+
+
+def _enforce_api_keys(
+    request: Request,
+    keys: list[str],
+    *,
+    missing_message: str,
+    invalid_message: str,
+) -> None:
+    normalized_keys = [key.strip() for key in keys if key.strip()]
+    if not normalized_keys:
+        return
+
+    token = _extract_router_api_key(request)
+    if token is None:
+        raise AuthenticationError(missing_message)
+
+    if not any(secrets.compare_digest(token, key) for key in normalized_keys):
+        raise AuthenticationError(invalid_message)

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "openclaw-ai-router config",
+  "title": "Lobsfeeder config",
   "type": "object",
   "required": ["server", "routing", "models"],
   "properties": {

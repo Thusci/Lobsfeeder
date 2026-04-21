@@ -46,6 +46,14 @@ api-key: <key>
 - 网关或浏览器工具偏好的 API key header
 - 旧系统已经固定的 `api-key` 头
 
+## 2.1 管理端 API key
+
+`/admin/*` 管理接口支持独立的 `server.admin_api_keys`。
+
+如果配置了 `admin_api_keys`，则管理接口优先要求这些 key。
+
+如果 `admin_api_keys` 为空，则 `/admin/*` 会回退到 `server.router_api_keys`。
+
 ## 3. Chat 请求示例
 
 ### 自动路由
@@ -161,7 +169,9 @@ curl http://127.0.0.1:8888/v1/chat/completions \
 ## 8. UI 调用行为
 
 `/ui` 控制台会：
+- 内置中英双语切换
 - 自动把输入的 Router API Key 同时兼容 raw key 和 Bearer token
+- 为 `/admin/*` 提供单独的管理区解锁流程
 - 用统一的请求封装访问 `/healthz`、`/readyz`、`/metrics`、`/admin/config`
 - 对 `/metrics` 按文本响应处理，而不是错误地按 JSON 解析
 

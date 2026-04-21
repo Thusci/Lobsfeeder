@@ -1,1 +1,1 @@
-"""openclaw-ai-router package."""
+"""Lobsfeeder package."""

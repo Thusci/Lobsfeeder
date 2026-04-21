@@ -65,7 +65,7 @@ def create_app(config: AppConfig | None = None, config_path: str | None = None) 
         finally:
             await close_services(services)
 
-    app = FastAPI(title="openclaw-ai-router", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Lobsfeeder", version="0.1.0", lifespan=lifespan)
 
     @app.middleware("http")
     async def body_size_limit(request: Request, call_next):
@@ -112,7 +112,7 @@ def _create_default_app() -> FastAPI:
         return create_app()
     except Exception as exc:  # pragma: no cover
         logger.exception("failed to create default app: %s", exc)
-        app = FastAPI(title="openclaw-ai-router", version="0.1.0")
+        app = FastAPI(title="Lobsfeeder", version="0.1.0")
 
         @app.get("/healthz")
         async def healthz_failed() -> JSONResponse:

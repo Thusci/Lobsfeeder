@@ -43,6 +43,10 @@ body {
   margin-bottom: 28px;
 }
 
+.hero-copy {
+  min-width: 0;
+}
+
 .hero h1 {
   font-family: var(--font-display);
   font-size: 32px;
@@ -61,6 +65,34 @@ body {
   color: var(--muted);
   max-width: 420px;
   line-height: 1.6;
+}
+
+.hero-disclaimer {
+  margin: 16px 0 0;
+  max-width: 520px;
+  color: #d7c89b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.hero-side {
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.locale-switch {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.lang-btn[data-active="true"] {
+  border-color: rgba(242, 183, 5, 0.6);
+  background: rgba(242, 183, 5, 0.14);
+  color: #f6d365;
 }
 
 .status-card {
@@ -106,6 +138,18 @@ body {
   align-items: center;
   gap: 16px;
   margin-bottom: 16px;
+}
+
+.panel-header-main {
+  min-width: 0;
+}
+
+.panel-copy {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 560px;
 }
 
 .panel-actions {
@@ -207,6 +251,50 @@ h2 {
   color: var(--muted);
   font-size: 13px;
   margin-bottom: 12px;
+}
+
+.auth-status {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.auth-status[data-tone="locked"] {
+  color: #ffd38a;
+  background: rgba(255, 166, 0, 0.14);
+}
+
+.auth-status[data-tone="unlocked"] {
+  color: #bdf8ca;
+  background: rgba(123, 255, 158, 0.14);
+}
+
+.panel-lock {
+  margin-bottom: 16px;
+  border: 1px dashed rgba(242, 183, 5, 0.28);
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: rgba(242, 183, 5, 0.05);
+  color: #f6d365;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-panel[data-locked="true"] .admin-guarded {
+  opacity: 0.58;
+}
+
+.admin-panel[data-locked="true"] .admin-guarded .output {
+  opacity: 1;
 }
 
 .hidden {
@@ -589,6 +677,14 @@ input.model-title,
 @media (max-width: 900px) {
   .hero {
     flex-direction: column;
+  }
+
+  .hero-side {
+    min-width: 0;
+  }
+
+  .locale-switch {
+    justify-content: flex-start;
   }
 
   .provider-header {

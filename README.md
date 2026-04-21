@@ -89,8 +89,8 @@ Benefits:
 - 支持 `stream=true` 的流式透传。
 - Health cooldown and request-level input limits.
 - 支持健康冷却和请求级输入限制。
-- Browser UI for probing, testing, and DB-backed config editing.
-- 提供浏览器 UI 用于探活、测试和基于 DB 的配置编辑。
+- Built-in browser UI with English and Chinese i18n, admin unlock flow, and DB-backed config editing.
+- 提供内置中英双语浏览器 UI，支持管理区解锁与基于 DB 的配置编辑。
 
 ## How It Works / 工作原理
 
@@ -246,6 +246,8 @@ server:
   db_path: /app/data/router.db
   router_api_keys:
     - router-secret
+  admin_api_keys:
+    - admin-secret
 
 routing:
   enabled: true
@@ -358,12 +360,14 @@ You can:
 
 你可以：
 
+- Switch between built-in English and Chinese UI copy
+- 在内置英文和中文界面之间切换
 - Probe `/healthz`, `/readyz`, `/metrics`, and `/debug/models`
 - 调用 `/healthz`、`/readyz`、`/metrics`、`/debug/models`
 - Send standard or streaming chat requests
 - 发送普通或流式 chat 请求
-- Load, validate, save, and apply DB-backed config
-- 加载、校验、保存并应用基于 DB 的配置
+- Unlock admin panels, then load, validate, save, and apply DB-backed config
+- 先解锁管理面板，再加载、校验、保存并应用基于 DB 的配置
 - Add providers, edit model settings, and switch OAuth mode
 - 新增 provider、编辑模型参数、切换 OAuth 模式
 
@@ -464,6 +468,16 @@ If it is configured, the router accepts any of the following:
 - `Authorization: Bearer <key>`
 - `X-API-Key: <key>`
 - `api-key: <key>`
+
+### Admin Auth / 管理端鉴权
+
+`/admin/*` routes support a dedicated key set via `server.admin_api_keys`.
+
+`/admin/*` 路由支持通过 `server.admin_api_keys` 配置独立管理 key。
+
+If `admin_api_keys` is empty, admin routes fall back to `router_api_keys`.
+
+如果 `admin_api_keys` 为空，管理端路由会回退使用 `router_api_keys`。
 
 ### Upstream Auth / 上游鉴权
 
