@@ -3,16 +3,157 @@
   "title": "Lobsfeeder config",
   "type": "object",
   "required": ["server", "routing", "models"],
+  "additionalProperties": false,
   "properties": {
-    "server": {"type": "object"},
-    "routing": {"type": "object"},
+    "server": {
+      "type": "object",
+      "required": ["router_api_keys", "admin_api_keys"],
+      "additionalProperties": false,
+      "properties": {
+        "host": {"type": "string", "default": "0.0.0.0"},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535, "default": 8888},
+        "request_timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600, "default": 120},
+        "max_request_body_mb": {"type": "integer", "minimum": 1, "maximum": 128, "default": 8},
+        "max_messages": {"type": "integer", "minimum": 1, "maximum": 10000, "default": 256},
+        "max_tools": {"type": "integer", "minimum": 0, "maximum": 4096, "default": 128},
+        "max_stop_sequences": {"type": "integer", "minimum": 0, "maximum": 512, "default": 32},
+        "max_message_chars": {"type": "integer", "minimum": 1, "maximum": 10000000, "default": 200000},
+        "max_tool_definition_chars": {"type": "integer", "minimum": 1, "maximum": 10000000, "default": 400000},
+        "global_limits": {"$ref": "#/$defs/global_limits"},
+        "config_source": {"type": "string", "enum": ["file", "db"], "default": "file"},
+        "db_path": {"type": "string", "default": "config/router.db"},
+        "router_api_keys": {"type": "array", "items": {"type": "string"}},
+        "admin_api_keys": {"type": "array", "items": {"type": "string"}},
+        "admin_allowed_cidrs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string"},
+          "description": "CIDR ranges allowed to access /ui and /admin/*."
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "required": ["evaluator_model", "default_difficulty", "difficulty_levels", "difficulty_to_model"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean", "default": true},
+        "evaluator_model": {"type": "string"},
+        "default_difficulty": {"type": "string"},
+        "allow_request_override": {"type": "boolean", "default": true},
+        "override_field_mode": {"type": "string", "enum": ["alias", "force_only", "disabled"], "default": "alias"},
+        "difficulty_levels": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "difficulty_to_model": {"type": "object", "additionalProperties": {"type": "string"}},
+        "fallback_policy": {"$ref": "#/$defs/fallback_policy"},
+        "strict_mode": {"type": "boolean", "default": false},
+        "allow_evaluator_as_candidate": {"type": "boolean", "default": false}
+      }
+    },
     "models": {
       "type": "object",
-      "additionalProperties": {"type": "object"}
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/model"}
     },
-    "telemetry": {"type": "object"},
-    "estimation": {"type": "object"},
-    "streaming": {"type": "object"}
+    "telemetry": {"$ref": "#/$defs/telemetry"},
+    "estimation": {"$ref": "#/$defs/estimation"},
+    "streaming": {"$ref": "#/$defs/streaming"}
   },
-  "additionalProperties": false
+  "$defs": {
+    "retry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_attempts": {"type": "integer", "minimum": 1, "maximum": 5, "default": 1},
+        "backoff_initial_ms": {"type": "integer", "minimum": 0, "maximum": 30000, "default": 200},
+        "backoff_max_ms": {"type": "integer", "minimum": 0, "maximum": 60000, "default": 1500}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "required": ["rpm", "tpm", "concurrency"],
+      "additionalProperties": false,
+      "properties": {
+        "rpm": {"type": "integer", "exclusiveMinimum": 0},
+        "tpm": {"type": "integer", "exclusiveMinimum": 0},
+        "concurrency": {"type": "integer", "exclusiveMinimum": 0}
+      }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "failure_threshold": {"type": "integer", "minimum": 1, "default": 5},
+        "cooldown_seconds": {"type": "integer", "minimum": 1, "default": 30}
+      }
+    },
+    "model": {
+      "type": "object",
+      "required": ["provider", "base_url", "upstream_model_name", "limits"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": {"type": "string", "enum": ["openai_compatible", "openai-codex-oauth"]},
+        "provider_group": {"type": ["string", "null"]},
+        "base_url": {"type": "string", "pattern": "^https?://"},
+        "api_key": {"type": ["string", "null"]},
+        "api_key_header": {"type": ["string", "null"], "default": "Authorization"},
+        "api_key_prefix": {"type": ["string", "null"], "default": "Bearer "},
+        "oauth_token_path": {"type": ["string", "null"]},
+        "upstream_model_name": {"type": "string"},
+        "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 600, "default": 60},
+        "retry": {"$ref": "#/$defs/retry"},
+        "limits": {"$ref": "#/$defs/limits"},
+        "health": {"$ref": "#/$defs/health"}
+      }
+    },
+    "fallback_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strategy": {"type": "string", "enum": ["fallback", "queue", "reject"], "default": "fallback"},
+        "ordered_candidates": {
+          "type": "object",
+          "additionalProperties": {"type": "array", "items": {"type": "string"}}
+        },
+        "max_fallback_hops": {"type": "integer", "minimum": 0, "maximum": 20, "default": 2},
+        "on_evaluator_error_use_default_difficulty": {"type": "boolean", "default": true},
+        "queue_wait_ms": {"type": "integer", "minimum": 0, "maximum": 60000, "default": 250},
+        "queue_poll_interval_ms": {"type": "integer", "minimum": 1, "maximum": 5000, "default": 25}
+      }
+    },
+    "global_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "total_rpm": {"type": ["integer", "null"], "exclusiveMinimum": 0},
+        "total_concurrency": {"type": ["integer", "null"], "exclusiveMinimum": 0}
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "structured_logs": {"type": "boolean", "default": true},
+        "log_level": {"type": "string", "default": "INFO"},
+        "expose_metrics": {"type": "boolean", "default": true},
+        "debug_prompts": {"type": "boolean", "default": false}
+      }
+    },
+    "estimation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token_strategy": {"type": "string", "enum": ["best_effort"], "default": "best_effort"},
+        "chars_per_token_fallback": {"type": "integer", "minimum": 1, "maximum": 20, "default": 4}
+      }
+    },
+    "streaming": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean", "default": true},
+        "evaluator_streaming": {"type": "boolean", "default": false},
+        "passthrough_streaming": {"type": "boolean", "default": true}
+      }
+    }
+  }
 }

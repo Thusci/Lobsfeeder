@@ -49,26 +49,32 @@ def _mock_upstream(respx_mock, host: str, response: httpx.Response | Exception):
 
 
 @asynccontextmanager
-async def router_client(app_config):
+async def router_client(app_config, auth: bool = True):
     app = create_app(config=app_config)
     services = await build_services(app_config)
     app.state.services = services
     transport = httpx.ASGITransport(app=app)
+    headers = {}
+    if auth and app_config.server.router_api_keys:
+        headers["Authorization"] = f"Bearer {app_config.server.router_api_keys[0]}"
     try:
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=headers) as client:
             yield client
     finally:
         await close_services(services)
 
 
 @asynccontextmanager
-async def router_client_with_services(app_config):
+async def router_client_with_services(app_config, auth: bool = True):
     app = create_app(config=app_config)
     services = await build_services(app_config)
     app.state.services = services
     transport = httpx.ASGITransport(app=app)
+    headers = {}
+    if auth and app_config.server.router_api_keys:
+        headers["Authorization"] = f"Bearer {app_config.server.router_api_keys[0]}"
     try:
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=headers) as client:
             yield client, services
     finally:
         await close_services(services)
@@ -178,7 +184,7 @@ async def test_unknown_override_returns_400(app_config) -> None:
 async def test_router_auth_returns_401(app_config) -> None:
     app_config.server.router_api_keys = ["secret"]
 
-    async with router_client(app_config) as client:
+    async with router_client(app_config, auth=False) as client:
         resp = await client.post(
             "/v1/chat/completions",
             json={"model": "force:model_b", "messages": [{"role": "user", "content": "hi"}]},
@@ -356,13 +362,13 @@ async def test_metrics_exposes_operational_gauges(app_config, respx_mock) -> Non
 async def test_health_and_metrics_require_router_api_key_when_configured(app_config) -> None:
     app_config.server.router_api_keys = ["secret"]
 
-    async with router_client(app_config) as client:
+    async with router_client(app_config, auth=False) as client:
         health = await client.get("/healthz")
         ready = await client.get("/readyz")
         metrics = await client.get("/metrics")
         authorized = await client.get("/healthz", headers={"Authorization": "Bearer secret"})
 
-    assert health.status_code == 401
+    assert health.status_code == 200
     assert ready.status_code == 401
     assert metrics.status_code == 401
     assert authorized.status_code == 200

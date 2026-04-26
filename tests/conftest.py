@@ -22,7 +22,7 @@ def build_base_config() -> dict[str, Any]:
             "port": 8080,
             "request_timeout_seconds": 120,
             "max_request_body_mb": 8,
-            "router_api_keys": [],
+            "router_api_keys": ["router-secret"],
             "admin_api_keys": [],
         },
         "routing": {

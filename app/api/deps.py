@@ -97,7 +97,7 @@ def _enforce_api_keys(
 ) -> None:
     normalized_keys = [key.strip() for key in keys if key.strip()]
     if not normalized_keys:
-        return
+        raise AuthenticationError(missing_message)
 
     token = _extract_router_api_key(request)
     if token is None:

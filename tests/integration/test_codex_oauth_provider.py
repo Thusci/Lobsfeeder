@@ -48,11 +48,12 @@ async def test_codex_oauth_provider_uses_access_token(app_config, respx_mock, tm
     app = create_app(config=app_config)
     transport = httpx.ASGITransport(app=app)
     async with app.router.lifespan_context(app):
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.post(
-                "/v1/chat/completions",
-                json={"model": "model_b", "messages": [{"role": "user", "content": "hi"}]},
-            )
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.post(
+                    "/v1/chat/completions",
+                    headers={"Authorization": "Bearer router-secret"},
+                    json={"model": "model_b", "messages": [{"role": "user", "content": "hi"}]},
+                )
 
     assert response.status_code == 200
     assert seen_auth["authorization"] == "Bearer oauth-token"

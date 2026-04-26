@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request
 from pydantic import ValidationError as PydanticValidationError
 
 from app.api.deps import enforce_admin_auth, get_services
+from app.core.access_control import merge_redacted_secrets, redact_config
 from app.core.config_store import ConfigStore
 from app.core.errors import ValidationError
 from app.core.lifecycle import build_services, close_services
@@ -29,13 +30,13 @@ async def get_config(request: Request) -> dict[str, object]:
             "writable": True,
             "startup_warning": runtime.get("startup_warning"),
             "updated_at": stored.updated_at if stored else None,
-            "config": services.config.model_dump(),
+            "config": redact_config(services.config),
         }
     return {
         "source": active_source,
         "writable": False,
         "startup_warning": runtime.get("startup_warning"),
-        "config": services.config.model_dump(),
+        "config": redact_config(services.config),
     }
 
 
@@ -43,7 +44,7 @@ async def get_config(request: Request) -> dict[str, object]:
 async def validate_config(request: Request) -> dict[str, object]:
     services = get_services(request)
     enforce_admin_auth(request, services)
-    payload = await request.json()
+    payload = merge_redacted_secrets(await request.json(), services.config)
     try:
         AppConfig.model_validate(payload)
     except PydanticValidationError as exc:
@@ -61,7 +62,7 @@ async def update_config(request: Request) -> dict[str, object]:
     if config_store is None:
         raise ValidationError("Config store is not initialized")
 
-    payload = await request.json()
+    payload = merge_redacted_secrets(await request.json(), services.config)
     try:
         new_config = AppConfig.model_validate(payload)
     except PydanticValidationError as exc:

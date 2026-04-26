@@ -4,12 +4,15 @@ import os
 import re
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.core.access_control import DEFAULT_ADMIN_ALLOWED_CIDRS, validate_cidrs
 
 
-ENV_VAR_RE = re.compile(r"\$\{([A-Z0-9_]+)\}")
+ENV_VAR_RE = re.compile(r"\$\{([A-Z0-9_]+)(?::-(.*?))?\}")
 
 
 class RetryConfig(BaseModel):
@@ -50,6 +53,16 @@ class ModelConfig(BaseModel):
     retry: RetryConfig = Field(default_factory=RetryConfig)
     limits: LimitConfig
     health: HealthConfig = Field(default_factory=HealthConfig)
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, value: str) -> str:
+        parsed = urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("base_url must be an absolute http(s) URL")
+        if parsed.username or parsed.password:
+            raise ValueError("base_url must not include credentials")
+        return value.rstrip("/")
 
     @model_validator(mode="after")
     def validate_provider_credentials(self) -> "ModelConfig":
@@ -100,7 +113,7 @@ class RoutingConfig(BaseModel):
     evaluator_model: str
     default_difficulty: str
     allow_request_override: bool = True
-    override_field_mode: str = "alias"
+    override_field_mode: Literal["alias", "force_only", "disabled"] = "alias"
     difficulty_levels: list[str]
     difficulty_to_model: dict[str, str]
     fallback_policy: FallbackPolicyConfig = Field(default_factory=FallbackPolicyConfig)
@@ -139,6 +152,14 @@ class ServerConfig(BaseModel):
     db_path: str = "config/router.db"
     router_api_keys: list[str] = Field(default_factory=list)
     admin_api_keys: list[str] = Field(default_factory=list)
+    admin_allowed_cidrs: list[str] = Field(default_factory=lambda: list(DEFAULT_ADMIN_ALLOWED_CIDRS))
+
+    @field_validator("admin_allowed_cidrs")
+    @classmethod
+    def validate_admin_allowed_cidrs(cls, values: list[str]) -> list[str]:
+        if not values:
+            raise ValueError("admin_allowed_cidrs must not be empty")
+        return validate_cidrs(values)
 
 
 class TelemetryConfig(BaseModel):
@@ -202,8 +223,11 @@ class AppConfig(BaseModel):
 def _interpolate_env(raw: str) -> str:
     def replace(match: re.Match[str]) -> str:
         key = match.group(1)
+        default = match.group(2)
         value = os.getenv(key)
         if value is None:
+            if default is not None:
+                return default
             raise ValueError(f"Missing environment variable: {key}")
         return value
 

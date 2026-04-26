@@ -19,15 +19,17 @@
 - `GET /readyz`
 - `GET /metrics`
 - `GET /debug/models`
-- `GET /admin/config`
+- `GET /admin/config`（返回配置时会脱敏密钥字段）
 - `POST /admin/config/validate`
 - `PUT /admin/config`
 
 ## 2. 路由器 API key
 
-当 `server.router_api_keys` 为空时，路由器不要求鉴权。
+`GET /healthz` 是公开的基础存活探针，不返回敏感信息。
 
-当 `server.router_api_keys` 非空时，上述所有端点都要求 API key，支持以下三种头格式：
+除 `/healthz` 外，路由器端点都要求 API key。当 `server.router_api_keys` 为空时，这些端点会拒绝请求。
+
+配置 key 后，支持以下三种头格式：
 
 ```http
 Authorization: Bearer <key>
@@ -53,6 +55,10 @@ api-key: <key>
 如果配置了 `admin_api_keys`，则管理接口优先要求这些 key。
 
 如果 `admin_api_keys` 为空，则 `/admin/*` 会回退到 `server.router_api_keys`。
+
+如果两组 key 都为空，`/admin/*` 会拒绝请求。
+
+`/ui` 和 `/admin/*` 还会受 `server.admin_allowed_cidrs` 限制，默认只允许 loopback 与 RFC1918/ULA/link-local 内网地址。不要在生产中加入 `0.0.0.0/0`。
 
 ## 3. Chat 请求示例
 
@@ -177,5 +183,6 @@ curl http://127.0.0.1:8888/v1/chat/completions \
 
 如果 UI 能访问而脚本访问失败，优先检查：
 - `server.router_api_keys` 是否已配置
+- `server.admin_allowed_cidrs` 是否包含浏览器或反向代理访问路由器时的源 IP
 - 是否使用了支持的三种鉴权头之一
 - 反向代理是否转发了 `Authorization` / `X-API-Key`

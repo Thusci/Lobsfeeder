@@ -161,9 +161,11 @@ export MODEL_A_API_KEY=...
 export MODEL_B_API_KEY=...
 export MODEL_C_API_KEY=...
 export MODEL_D_API_KEY=...
+export ROUTER_API_KEY=router-secret
+export ADMIN_API_KEY=admin-secret
 export ROUTER_CONFIG=config/config.yaml
 
-PYTHONPATH=. uvicorn app.main:app --host 0.0.0.0 --port 8888
+PYTHONPATH=. uvicorn app.main:app --host 127.0.0.1 --port 8888
 ```
 
 Useful local URLs:
@@ -191,13 +193,17 @@ Default `docker-compose.yml` behavior:
 - 将 `./data` 挂载为 SQLite 配置持久化目录
 - Mounts `${HOME}/.codex` read-only for OAuth token provider use
 - 将 `${HOME}/.codex` 只读挂载给 OAuth token provider 使用
+- Binds the router to `127.0.0.1:8888` on the host by default
+- 默认只绑定宿主机 `127.0.0.1:8888`
+- Reads `ROUTER_API_KEY` and `ADMIN_API_KEY` from the environment
+- 从环境变量读取 `ROUTER_API_KEY` 与 `ADMIN_API_KEY`
 
 For UI-based persistent config editing, keep:
 
 若希望通过 UI 保存并持久化配置，建议保持：
 
 - `server.config_source: db`
-- `server.db_path: /app/data/router.db`
+- `server.db_path: ${ROUTER_DB_PATH:-config/router.db}`
 
 ## Configuration / 配置说明
 
@@ -243,11 +249,16 @@ server:
   host: 0.0.0.0
   port: 8888
   config_source: db
-  db_path: /app/data/router.db
+  db_path: ${ROUTER_DB_PATH:-config/router.db}
   router_api_keys:
     - router-secret
   admin_api_keys:
     - admin-secret
+  admin_allowed_cidrs:
+    - 127.0.0.0/8
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
 
 routing:
   enabled: true
@@ -281,21 +292,20 @@ See the full sample in [config/config.example.yaml](config/config.example.yaml).
 
 ### 1. Check Service Health / 检查服务状态
 
-Without router auth:
+`/healthz` is public and safe for liveness checks:
 
-未启用路由器鉴权时：
+`/healthz` 是公开的基础存活探针：
 
 ```bash
 curl http://127.0.0.1:8888/healthz
-curl http://127.0.0.1:8888/readyz
 ```
 
-With router auth enabled:
+Other operational endpoints require a router API key:
 
-启用路由器鉴权后：
+其它运维端点需要 Router API Key：
 
 ```bash
-curl http://127.0.0.1:8888/healthz \
+curl http://127.0.0.1:8888/readyz \
   -H "Authorization: Bearer router-secret"
 ```
 
@@ -448,7 +458,7 @@ For `openai-codex-oauth`:
 | `/readyz` | `GET` | Readiness probe | 就绪状态检查 |
 | `/metrics` | `GET` | Prometheus metrics | Prometheus 指标 |
 | `/debug/models` | `GET` | Model health and limit snapshot | 模型健康与限流快照 |
-| `/admin/config` | `GET` | Read current config | 读取当前配置 |
+| `/admin/config` | `GET` | Read current config with secrets redacted | 读取当前配置，密钥会脱敏 |
 | `/admin/config/validate` | `POST` | Validate config payload | 校验配置是否合法 |
 | `/admin/config` | `PUT` | Save and hot-apply config | 保存并热应用配置 |
 | `/ui` | `GET` | Browser control console | 浏览器控制台 |
@@ -457,13 +467,13 @@ For `openai-codex-oauth`:
 
 ### Router Auth / 路由器鉴权
 
-If `server.router_api_keys` is empty, router endpoints are public.
+If `server.router_api_keys` is empty, router endpoints other than `/healthz` reject requests.
 
-如果 `server.router_api_keys` 为空，则路由器端点默认不鉴权。
+如果 `server.router_api_keys` 为空，除 `/healthz` 外的路由器端点会拒绝请求。
 
-If it is configured, the router accepts any of the following:
+When configured, the router accepts any of the following:
 
-如果配置了 key，则支持以下任意一种写法：
+配置 key 后，支持以下任意一种写法：
 
 - `Authorization: Bearer <key>`
 - `X-API-Key: <key>`
@@ -478,6 +488,10 @@ If it is configured, the router accepts any of the following:
 If `admin_api_keys` is empty, admin routes fall back to `router_api_keys`.
 
 如果 `admin_api_keys` 为空，管理端路由会回退使用 `router_api_keys`。
+
+If both key sets are empty, `/admin/*` rejects requests. `/ui` and `/admin/*` are also limited by `server.admin_allowed_cidrs`; keep that list private/internal.
+
+如果两组 key 都为空，`/admin/*` 会拒绝请求。`/ui` 与 `/admin/*` 还会受 `server.admin_allowed_cidrs` 限制；请保持该列表仅包含内网范围。
 
 ### Upstream Auth / 上游鉴权
 
@@ -502,8 +516,8 @@ Built-in operational capabilities:
 
 内建运维能力：
 
-- `/healthz` and `/readyz` probes
-- `/healthz` 与 `/readyz` 探针
+- Public `/healthz` liveness and authenticated `/readyz` readiness probes
+- 公开的 `/healthz` 存活探针，以及需要鉴权的 `/readyz` 就绪探针
 - `/metrics` for Prometheus scraping
 - `/metrics` 可供 Prometheus 抓取
 - `X-Request-ID` propagation for request tracing
@@ -549,7 +563,7 @@ Run the app locally with reload:
 本地热重载运行：
 
 ```bash
-PYTHONPATH=. uvicorn app.main:app --reload --host 0.0.0.0 --port 8888
+PYTHONPATH=. uvicorn app.main:app --reload --host 127.0.0.1 --port 8888
 ```
 
 ## Project Structure / 项目结构
@@ -572,6 +586,7 @@ tests/          Unit and integration tests
 
 - [API And Auth Guide / API 与鉴权说明](docs/api-and-auth.md)
 - [Configuration Guide / 配置与部署说明](docs/configuration.md)
+- [Release Checklist / 发布检查清单](docs/release-checklist.md)
 - [Example Config / 示例配置](config/config.example.yaml)
 
 ## License

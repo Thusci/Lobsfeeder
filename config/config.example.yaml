@@ -12,15 +12,29 @@ server:
     total_rpm:
     total_concurrency:
   config_source: db
-  db_path: /app/data/router.db
+  db_path: ${ROUTER_DB_PATH:-config/router.db}
   # Router auth supports:
   # - Authorization: Bearer <key>
   # - X-API-Key: <key>
   # - api-key: <key>
-  router_api_keys: []
+  # If empty, router endpoints other than /healthz reject requests.
+  router_api_keys:
+    - "${ROUTER_API_KEY:-}"
   # Admin/UI auth supports the same headers.
   # If empty, /admin/* falls back to router_api_keys.
-  admin_api_keys: []
+  # If both are empty, admin config APIs reject requests.
+  admin_api_keys:
+    - "${ADMIN_API_KEY:-}"
+  # /ui and /admin/* are additionally restricted to these networks.
+  # Keep these private; do not add 0.0.0.0/0 in production.
+  admin_allowed_cidrs:
+    - 127.0.0.0/8
+    - ::1/128
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    - fc00::/7
+    - fe80::/10
 
 routing:
   enabled: true

@@ -13,8 +13,7 @@ router = APIRouter(tags=["health"])
 
 @router.get("/healthz")
 async def healthz(request: Request) -> dict[str, str]:
-    services = get_services(request)
-    enforce_router_auth(request, services)
+    get_services(request)
     return {"status": "ok"}
 
 

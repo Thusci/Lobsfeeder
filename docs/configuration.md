@@ -28,6 +28,13 @@ config/config.example.yaml
 api_key: ${MODEL_B_API_KEY}
 ```
 
+也支持 `${ENV_VAR:-default}` 默认值语法，例如：
+
+```yaml
+router_api_keys:
+  - "${ROUTER_API_KEY:-}"
+```
+
 ## 2. 顶层结构
 
 ```yaml
@@ -63,14 +70,24 @@ server:
   max_message_chars: 200000
   max_tool_definition_chars: 400000
   config_source: db
-  db_path: /app/data/router.db
+  db_path: ${ROUTER_DB_PATH:-config/router.db}
   router_api_keys:
     - router-secret
   admin_api_keys:
     - admin-secret
+  admin_allowed_cidrs:
+    - 127.0.0.0/8
+    - ::1/128
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    - fc00::/7
+    - fe80::/10
 ```
 
-`router_api_keys` 生效后，以下头都可用于访问路由器：
+除 `/healthz` 外，路由器端点都要求 `router_api_keys`。如果为空，这些端点会拒绝请求。
+
+配置后，以下头都可用于访问路由器：
 - `Authorization: Bearer <key>`
 - `X-API-Key: <key>`
 - `api-key: <key>`
@@ -78,6 +95,10 @@ server:
 `admin_api_keys` 用于单独保护 `/admin/*` 管理接口。
 
 如果 `admin_api_keys` 为空，则 `/admin/*` 会回退使用 `router_api_keys`。
+
+如果两组 key 都为空，管理接口会拒绝请求。`admin_allowed_cidrs` 会额外限制 `/ui` 和 `/admin/*` 的来源地址，默认只允许 loopback 与内网地址。
+
+服务启动时会输出当前访问策略，包括 router/admin 鉴权是否配置，以及 `/ui` 与 `/admin/*` 允许的 CIDR 范围。发布时请确认日志中没有意外的公网范围。
 
 ## 4. routing 配置
 
@@ -226,7 +247,7 @@ models:
 ```yaml
 server:
   config_source: db
-  db_path: /app/data/router.db
+  db_path: ${ROUTER_DB_PATH:-config/router.db}
 ```
 
 行为说明：
@@ -240,6 +261,8 @@ server:
 `docker-compose.yml` 默认已经考虑了两个挂载场景：
 - `./data:/app/data`：持久化 SQLite 配置
 - `${HOME}/.codex:/root/.codex:ro`：给 `openai-codex-oauth` provider 提供 token 文件
+- `127.0.0.1:8888:8888`：默认只绑定宿主机本地端口，避免把 `/ui` 暴露到公网
+- `ROUTER_DB_PATH=/app/data/router.db`：容器中把 DB 写入持久化挂载目录
 
 因此比较推荐的启动方式是：
 
@@ -268,5 +291,7 @@ docker compose up --build
 
 检查：
 - UI 连接区是否填写了正确的 Router API Key
+- 管理区是否填写了 Admin API Key，或是否允许回退到 Router API Key
+- 客户端 IP 是否落在 `server.admin_allowed_cidrs` 内
 - 当前配置是否是 `config_source: db`
 - 浏览器访问的 base URL 是否就是路由器实际地址

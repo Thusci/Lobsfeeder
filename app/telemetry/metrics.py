@@ -11,6 +11,10 @@ def _labels_key(labels: Mapping[str, str] | None) -> tuple[tuple[str, str], ...]
     return tuple(sorted((str(k), str(v)) for k, v in labels.items()))
 
 
+def _escape_label_value(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
+
+
 class MetricsRegistry:
     def __init__(self, enabled: bool = True) -> None:
         self.enabled = enabled
@@ -50,7 +54,7 @@ class MetricsRegistry:
                 lines.append(f"# TYPE {metric_name} counter")
                 for labels, value in series.items():
                     if labels:
-                        label_str = ",".join(f'{k}="{v}"' for k, v in labels)
+                        label_str = ",".join(f'{k}="{_escape_label_value(v)}"' for k, v in labels)
                         lines.append(f"{metric_name}{{{label_str}}} {value}")
                     else:
                         lines.append(f"{metric_name} {value}")
@@ -62,7 +66,7 @@ class MetricsRegistry:
                         continue
                     avg = sum(values) / len(values)
                     if labels:
-                        label_str = ",".join(f'{k}="{v}"' for k, v in labels)
+                        label_str = ",".join(f'{k}="{_escape_label_value(v)}"' for k, v in labels)
                         lines.append(f"{metric_name}_count{{{label_str}}} {len(values)}")
                         lines.append(f"{metric_name}_avg{{{label_str}}} {avg}")
                     else:
@@ -73,7 +77,7 @@ class MetricsRegistry:
                 lines.append(f"# TYPE {metric_name} gauge")
                 for labels, value in series.items():
                     if labels:
-                        label_str = ",".join(f'{k}="{v}"' for k, v in labels)
+                        label_str = ",".join(f'{k}="{_escape_label_value(v)}"' for k, v in labels)
                         lines.append(f"{metric_name}{{{label_str}}} {value}")
                     else:
                         lines.append(f"{metric_name} {value}")

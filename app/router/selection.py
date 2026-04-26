@@ -15,7 +15,14 @@ class RouteMode:
 
 def resolve_route_mode(request_model: str, config: AppConfig) -> RouteMode:
     routing = config.routing
+    override_enabled = routing.allow_request_override and routing.override_field_mode != "disabled"
     if request_model.startswith("force:"):
+        if not override_enabled or routing.override_field_mode not in {"alias", "force_only"}:
+            return RouteMode(
+                mode="invalid_override",
+                override_model=None,
+                error_message="Model override is disabled",
+            )
         forced = request_model.split(":", 1)[1].strip()
         if not forced or forced not in config.models:
             return RouteMode(
@@ -25,7 +32,7 @@ def resolve_route_mode(request_model: str, config: AppConfig) -> RouteMode:
             )
         return RouteMode(mode="bypass", override_model=forced)
 
-    if routing.allow_request_override and request_model in config.models:
+    if override_enabled and routing.override_field_mode == "alias" and request_model in config.models:
         return RouteMode(mode="bypass", override_model=request_model)
 
     if not routing.enabled:
